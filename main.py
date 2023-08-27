@@ -198,7 +198,6 @@ def main(dist, sim_type, num_sim, num_samples, num_noise_samples, T, plot_result
 #                lambda_list = [790, 779]
 #                lambda_list = [1489.399258789312, 1489.399258789312, 1291.5109623563137, 1291.5109623563137, 1291.5109623563137, 1291.5109623563137, 1291.5109623563137, 1291.5109623563137, 1291.5109623563137, 1291.5109623563137, 1291.5109623563137, 1256.5724282476685, 1052.0678820527962, 897.8983301276867, 776.2229407903919, 763.4769507266147]
 
-<<<<<<< HEAD
             lambda_ = lambda_list[theta_ind]
                             
         elif dist == "multimodal":
@@ -275,15 +274,6 @@ def main(dist, sim_type, num_sim, num_samples, num_noise_samples, T, plot_result
                 drkf_wdrc_.backward()
                 wdrc_.backward()
                 lqg_.backward()
-=======
-    #Path for saving the results
-    if sim_type == "multiple":
-        path = "./results/{}/finite/multiple/".format(dist)
-    else:
-        path = "./results/{}/finite/single/".format(dist)
-    if not os.path.exists(path):
-        os.makedirs(path)
->>>>>>> 0f51a8e36db57fc7fda9eadc72231480dedaac1e
 
                 while not wdrc_.flag or not lqg_.flag or not drkf_wdrc_.flag:
                     mu_hat[i], Sigma_hat[i] = gen_sample_dist(dist, T, num_samples, mu_w=mu_w, Sigma_w=Sigma_w, w_max=w_max, w_min=w_min)
@@ -291,7 +281,6 @@ def main(dist, sim_type, num_sim, num_samples, num_noise_samples, T, plot_result
                     wdrc_ = WDRC(theta, T, dist, system_data, mu_hat[i], Sigma_hat[i], x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat)
                     lqg_ = LQG(T, dist, system_data, mu_hat[i], Sigma_hat[i], x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat)
 
-<<<<<<< HEAD
                     drkf_wdrc_.backward()
                     wdrc_.backward()
                     lqg_.backward()
@@ -312,35 +301,6 @@ def main(dist, sim_type, num_sim, num_samples, num_noise_samples, T, plot_result
                 drkf_wdrc = DRKF_WDRC(theta, T, dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat)
                 wdrc = WDRC(theta, T, dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat)
                 lqg = LQG(T, dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat)
-=======
-    if dist =="uniform":
-        M = 0.1*np.eye(ny) #observation noise covariance
-        theta = 0.03 #Wasserstein ball radius
-        #disturbance distribution parameters
-        w_max = 0.05*np.ones(nx)
-        w_min = -0.05*np.ones(nx)
-        mu_w = (0.5*(w_max + w_min))[..., np.newaxis]
-        Sigma_w = 1/12*np.diag((w_max - w_min)**2)
-        #initial state distribution parameters
-        x0_max = np.array([0.3, 0.5])
-        x0_min = np.array([0.1, 0.2])
-        x0_mean = (0.5*(x0_max + x0_min))[..., np.newaxis]
-        x0_cov = 1/12*np.diag((x0_max - x0_min)**2)
-
-    elif dist == "normal":
-        M = 0.2*np.eye(ny) #observation noise covariance
-        theta = 0.1 #Wasserstein ball radius
-        #disturbance distribution parameters
-        w_max = None
-        w_min = None
-        mu_w = np.array([[0.01],[0.02]])
-        Sigma_w= np.array([[0.01, 0.005],[0.005, 0.01]])
-        #initial state distribution parameters
-        x0_max = None
-        x0_min = None
-        x0_mean = np.array([[-1],[-1]])
-        x0_cov = 0.001*np.eye(nx)
->>>>>>> 0f51a8e36db57fc7fda9eadc72231480dedaac1e
 
             drkf_wdrc.backward()
             wdrc.backward()
@@ -541,7 +501,6 @@ if __name__ == "__main__":
     parser.add_argument('--sim_type', required=False, default="multiple", type=str) #simulation type (single or multiple)
     parser.add_argument('--num_sim', required=False, default=500, type=int) #number of simulation runs
     parser.add_argument('--num_samples', required=False, default=5, type=int) #number of disturbance samples
-<<<<<<< HEAD
     parser.add_argument('--num_noise_samples', required=False, default=10, type=int) #number of noise samples
     parser.add_argument('--horizon', required=False, default=100, type=int) #horizon length
     parser.add_argument('--plot', required=False, action="store_true") #plot results+
@@ -549,11 +508,6 @@ if __name__ == "__main__":
     parser.add_argument('--os', required=False, action="store_true")
     parser.add_argument('--wc', required=False, action="store_true")
     parser.add_argument('--h_inf', required=False, action="store_true")
-=======
-    parser.add_argument('--horizon', required=False, default=50, type=int) #horizon length
-    parser.add_argument('--plot', required=False, action="store_true") #plot results+
-
->>>>>>> 0f51a8e36db57fc7fda9eadc72231480dedaac1e
 
     args = parser.parse_args()
     np.random.seed(100)
