@@ -501,7 +501,7 @@ if __name__ == "__main__":
     parser.add_argument('--sim_type', required=False, default="multiple", type=str) #simulation type (single or multiple)
     parser.add_argument('--num_sim', required=False, default=500, type=int) #number of simulation runs
     parser.add_argument('--num_samples', required=False, default=5, type=int) #number of disturbance samples
-    parser.add_argument('--num_noise_samples', required=False, default=10, type=int) #number of noise samples
+    parser.add_argument('--num_noise_samples', required=False, default=20, type=int) #number of noise samples
     parser.add_argument('--horizon', required=False, default=100, type=int) #horizon length
     parser.add_argument('--plot', required=False, action="store_true") #plot results+
     parser.add_argument('--infinite', required=False, action="store_true") #infinite horizon settings if flagged
