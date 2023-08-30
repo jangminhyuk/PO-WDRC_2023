@@ -247,17 +247,21 @@ class MMSE_WDRC:
         V_v = cp.Variable((self.ny, self.ny), symmetric = True)
         
         #Parameters
-        Sigma_x = cp.Parameter((self.nx, self.nx))
-        Sigma_x_root = cp.Parameter((self.nx, self.nx))
-        Sigma_v = cp.Parameter((self.ny, self.ny))
-        Sigma_v_root = cp.Parameter((self.ny, self.ny))
+        Sigma_x = cp.Parameter((self.nx, self.nx), PSD=True)
+        Sigma_x_root = cp.Parameter((self.nx, self.nx), PSD=True)
+        Sigma_v = cp.Parameter((self.ny, self.ny), PSD=True)
+        Sigma_v_root = cp.Parameter((self.ny, self.ny), PSD=True)
         rho_x = cp.Parameter(nonneg = True)
         rho_v = cp.Parameter(nonneg = True)
         
         Sigma_x.value = X_cov
-        Sigma_x_root.value = np.real(scipy.linalg.sqrtm(X_cov + 1e-4*np.eye(self.nx)))
+        #Sigma_x_root.value = np.real(scipy.linalg.sqrtm(X_cov + 1e-4*np.eye(self.nx)))
+        Sigma_x_root.value = np.real(scipy.linalg.sqrtm(X_cov))
+        
         Sigma_v.value = M_hat
-        Sigma_v_root.value = np.real(scipy.linalg.sqrtm(M_hat + 1e-4*np.eye(self.ny)))
+        #Sigma_v_root.value = np.real(scipy.linalg.sqrtm(M_hat + 1e-4*np.eye(self.ny)))
+        Sigma_v_root.value = np.real(scipy.linalg.sqrtm(M_hat))
+        
         rho_x.value = self.theta
         rho_v.value = self.theta # can be modified!
         
@@ -302,7 +306,7 @@ class MMSE_WDRC:
             x_ = self.A @ x + self.B @ u + mu_w
         
         b_opt = x_ - Alpha @ (self.C @ x_ + v)
-        x_estim = Alpha @ y + b_opt
+        x_estim = Alpha @ y + b_opt # Linear estimator
         
         return x_estim
     
@@ -319,7 +323,7 @@ class MMSE_WDRC:
         
         K = np.eye(self.nx)-Alpha @ self.C
         temp = gamma_x*np.eye(self.nx)- K.T @ K
-        X_cov = gamma_x**2 *np.linalg.inv(temp) @ X_cov_ @ np.linalg.inv(temp)
+        X_cov = (gamma_x**2) * np.linalg.inv(temp) @ X_cov_ @ np.linalg.inv(temp) # worst Cov
         return X_cov, Alpha
     
     def riccati(self, Phi, P, S, r, z, Sigma_hat, mu_hat, lambda_, t):
@@ -368,7 +372,8 @@ class MMSE_WDRC:
 
         self.x_cov[0], self.Alpha[0]  = self.DR_Estimation_cov(self.M_hat[0], self.x0_cov)
         for t in range(self.T):
-            print("DRKF WDRC Offline step : ",t,"/",self.T)
+            print("MMSE WDRC Offline step : ",t,"/",self.T)
+            #print(self.x_cov[t])
             sdp_prob = self.gen_sdp(self.lambda_, self.M_hat[t])
             sigma_wc[t], _, status = self.solve_sdp(sdp_prob, self.x_cov[t], self.P[t+1], self.S[t+1], self.Sigma_hat[t])
             if status in ["infeasible", "unbounded"]:

@@ -86,7 +86,7 @@ def save_data(path, data):
     pickle.dump(data, output)
     output.close()
 
-def main(dist, sim_type, num_sim, num_samples, num_noise_samples, T, plot_results, infinite, out_of_sample, wc, h_inf):
+def main(dist, sim_type, num_sim, num_samples, num_noise_samples, T, method, plot_results, infinite, out_of_sample, wc, h_inf):
     lambda_ = 1000
     for theta_ind, theta in enumerate([0.5]):
 #    enumerate([0.5, 1])            
@@ -301,7 +301,10 @@ def main(dist, sim_type, num_sim, num_samples, num_noise_samples, T, plot_result
                     lqg = inf_LQG(T, dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat[0])
                     
             else:
-                drkf_wdrc = DRKF_WDRC(theta, T, dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat)
+                if method==1: #method 1 means the DRKF method from NeurIPS Distributionally Robust Kalman Filtering
+                    drkf_wdrc = DRKF_WDRC(theta, T, dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat)
+                else: # method 2 means the MMSE estimation problem method from Adversial Analytics
+                    drkf_wdrc = MMSE_WDRC(theta, T, dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat)
                 wdrc = WDRC(theta, T, dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat)
                 lqg = LQG(T, dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat)
 
@@ -507,6 +510,7 @@ if __name__ == "__main__":
     parser.add_argument('--num_samples', required=False, default=5, type=int) #number of disturbance samples
     parser.add_argument('--num_noise_samples', required=False, default=10, type=int) #number of noise samples
     parser.add_argument('--horizon', required=False, default=100, type=int) #horizon length
+    parser.add_argument('--method', required=False, default=1, type=int) #method 1 means DRKF(NeurIPS), method 2 means MMSE Estimation
     parser.add_argument('--plot', required=False, action="store_true") #plot results+
     parser.add_argument('--infinite', required=False, action="store_true") #infinite horizon settings if flagged
     parser.add_argument('--os', required=False, action="store_true")
@@ -515,4 +519,4 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     np.random.seed(100)
-    main(args.dist, args.sim_type, args.num_sim, args.num_samples, args.num_noise_samples, args.horizon, args.plot, args.infinite, args.os, args.wc, args.h_inf)
+    main(args.dist, args.sim_type, args.num_sim, args.num_samples, args.num_noise_samples, args.horizon, args.method, args.plot, args.infinite, args.os, args.wc, args.h_inf)

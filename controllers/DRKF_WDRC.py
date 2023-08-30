@@ -253,12 +253,12 @@ class DRKF_WDRC:
         
         Sigma.value = Sigma_z
         #Sigma_root.value = np.linalg.cholesky(Sigma_z)
-        #print(Sigma_z)
-        Sigma_root.value = np.real(scipy.linalg.sqrtm(Sigma_z + 1e-4*np.eye(self.nx+self.ny)))
-        #print(Sigma_root.value)
+        #Sigma_root.value = np.real(scipy.linalg.sqrtm(Sigma_z + 1e-4*np.eye(self.nx+self.ny)))
+        Sigma_root.value = np.real(scipy.linalg.sqrtm(Sigma_z))
         radi.value = theta
         #print(np.min(np.linalg.eigvals(Sigma_z + 1e-5*np.eye(self.nx+self.ny))))
-        sigma_min.value = np.real( np.min(np.linalg.eigvals(Sigma_z + 1e-4*np.eye(self.nx+self.ny))) )
+        #sigma_min.value = np.real( np.min(np.linalg.eigvals(Sigma_z + 1e-4*np.eye(self.nx+self.ny))) )
+        sigma_min.value = np.real( np.min(np.linalg.eigvals(Sigma_z)) )
         
         
         #print(sigma_min.value)
