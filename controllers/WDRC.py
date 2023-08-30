@@ -198,7 +198,8 @@ class WDRC:
         params[0].value = P
         params[1].value = S
 #        params[2].value = np.linalg.cholesky(Sigma_hat)
-        params[2].value = np.real(scipy.linalg.sqrtm(Sigma_hat + 1e-5*np.eye(self.nx)))
+        #params[2].value = np.real(scipy.linalg.sqrtm(Sigma_hat + 1e-5*np.eye(self.nx)))
+        params[2].value = np.real(scipy.linalg.sqrtm(Sigma_hat + 1e-4*np.eye(self.nx)))
         params[3].value = x_cov
         
         sdp_prob.solve(solver=cp.MOSEK)
@@ -221,7 +222,7 @@ class WDRC:
         P_new = P_ - P_ @ self.C.T @ temp
         return P_new
     
-    def kalman_filter(self, M_hat, x, P, y, mu_w=None, P_w=None, u = None):
+    def kalman_filter(self, M_hat, x, P, y, mu_w=None, u = None):
         #Performs state estimation based on the current state estimate, control input and new observation
         if u is None:
             #Initial state estimate
@@ -285,7 +286,7 @@ class WDRC:
 
         self.x_cov[0] = self.kalman_filter_cov(self.M_hat[0], self.x0_cov)
         for t in range(self.T):
-            print("WDRC backward step(Offline) : ",t,"/",self.T)
+            print("WDRC Offline step : ",t,"/",self.T)
             sdp_prob = self.gen_sdp(self.lambda_, self.M_hat[t])
             sigma_wc[t], _, status = self.solve_sdp(sdp_prob, self.x_cov[t], self.P[t+1], self.S[t+1], self.Sigma_hat[t])
             if status in ["infeasible", "unbounded"]:

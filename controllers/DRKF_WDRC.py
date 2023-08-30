@@ -7,6 +7,8 @@ from scipy.optimize import minimize
 import cvxpy as cp
 import scipy
 
+#This method implements the SDP formualation of MMSE estimation problem from "Shafieezadeh Abadeh, Soroosh, et al. "Wasserstein distributionally robust Kalman filtering." Advances in Neural Information Processing Systems 31 (2018)."
+#For Kalman filtering, this method makes the ambiguity set of dimension [nx + ny] 
 class DRKF_WDRC:
     def __init__(self, theta, T, dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat):
         self.dist = dist
@@ -252,11 +254,11 @@ class DRKF_WDRC:
         Sigma.value = Sigma_z
         #Sigma_root.value = np.linalg.cholesky(Sigma_z)
         #print(Sigma_z)
-        Sigma_root.value = np.real(scipy.linalg.sqrtm(Sigma_z + 1e-5*np.eye(self.nx+self.ny)))
+        Sigma_root.value = np.real(scipy.linalg.sqrtm(Sigma_z + 1e-4*np.eye(self.nx+self.ny)))
         #print(Sigma_root.value)
         radi.value = theta
         #print(np.min(np.linalg.eigvals(Sigma_z + 1e-5*np.eye(self.nx+self.ny))))
-        sigma_min.value = np.real( np.min(np.linalg.eigvals(Sigma_z + 1e-5*np.eye(self.nx+self.ny))) )
+        sigma_min.value = np.real( np.min(np.linalg.eigvals(Sigma_z + 1e-4*np.eye(self.nx+self.ny))) )
         
         
         #print(sigma_min.value)
@@ -397,7 +399,7 @@ class DRKF_WDRC:
 
         self.x_cov[0], self.S_xx[0], self.S_xy[0], self.S_yy[0] = self.DR_kalman_filter_cov(self.M_hat[0], self.x0_cov)
         for t in range(self.T):
-            print("DRKF WDRC backward step(Offline) : ",t,"/",self.T)
+            print("DRKF WDRC Offline step : ",t,"/",self.T)
             sdp_prob = self.gen_sdp(self.lambda_, self.M_hat[t])
             sigma_wc[t], _, status = self.solve_sdp(sdp_prob, self.x_cov[t], self.P[t+1], self.S[t+1], self.Sigma_hat[t])
             if status in ["infeasible", "unbounded"]:

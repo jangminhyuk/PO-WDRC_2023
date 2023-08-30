@@ -6,6 +6,7 @@ import argparse
 from controllers.LQG import LQG
 from controllers.WDRC import WDRC
 from controllers.DRKF_WDRC import DRKF_WDRC
+from controllers.MMSE_WDRC import MMSE_WDRC
 from controllers.inf_LQG import inf_LQG
 from controllers.inf_WDRC import inf_WDRC
 from controllers.inf_DRKF_WDRC import inf_DRKF_WDRC
@@ -146,22 +147,22 @@ def main(dist, sim_type, num_sim, num_samples, num_noise_samples, T, plot_result
             x0_min[-1] = 0.95
             x0_mean = (0.5*(x0_max + x0_min))[..., np.newaxis]
             x0_cov = 1/12*np.diag((x0_max - x0_min)**2)
-            if num_samples == 5:
-#                lambda_list = [850, 820]
-#                lambda_list = [780.2396483109309, 765.5991469006884]
-                lambda_list = [780.2396483109309]
-#                lambda_list = [1107.653293607882, 1107.653293607882, 1290.4178108555284, 1290.4178108555284, 1290.4178108555284, 1290.4178108555284, 1290.4178108555284, 1290.4178108555284, 1290.4178108555284, 1279.1174641524258, 1270.3111655056887, 1236.4068466992562, 1052.0625048556794, 912.4077111597371, 780.2396483109309, 765.5991469006884]
-            if num_samples == 10:
-                lambda_list = [776.0998011937304]
-#                lambda_list = [776.0998011937304, 763.514339455696]
-#                lambda_list = [830, 810]
-#                lambda_list = [1242.240707241318, 1257.5366782405856, 1257.5366782405856, 1257.5366782405856, 1257.5366782405856, 1257.5366782405856, 1257.5366782405856, 1257.5366782405856, 1226.3495924878498, 1226.3495924878498, 1199.345818602059, 1026.146847412157, 894.6657627413663, 776.0998011937304, 763.514339455696]
-            if num_samples == 20:
-                lambda_list = [781.123992343782]
-#                lambda_list = [781.123992343782, 765.9331733879504]
-#                lambda_list = [825, 800]
-#                lambda_list = [1268.0815729111753, 1268.0815729111753, 1289.6912301014315, 1289.6912301014315, 1289.6912301014315, 1289.6912301014315, 1289.6912301014315, 1289.6912301014315, 1289.6912301014315, 1282.8160606455085, 1282.8160606455085, 1252.8446224026345, 1056.7448705096183, 914.1346001244447, 781.123992343782, 765.9331733879504]
-            lambda_ = lambda_list[theta_ind]
+#             if num_samples == 5:
+# #                lambda_list = [850, 820]
+# #                lambda_list = [780.2396483109309, 765.5991469006884]
+#                 lambda_list = [780.2396483109309]
+# #                lambda_list = [1107.653293607882, 1107.653293607882, 1290.4178108555284, 1290.4178108555284, 1290.4178108555284, 1290.4178108555284, 1290.4178108555284, 1290.4178108555284, 1290.4178108555284, 1279.1174641524258, 1270.3111655056887, 1236.4068466992562, 1052.0625048556794, 912.4077111597371, 780.2396483109309, 765.5991469006884]
+#             if num_samples == 10:
+#                 lambda_list = [776.0998011937304]
+# #                lambda_list = [776.0998011937304, 763.514339455696]
+# #                lambda_list = [830, 810]
+# #                lambda_list = [1242.240707241318, 1257.5366782405856, 1257.5366782405856, 1257.5366782405856, 1257.5366782405856, 1257.5366782405856, 1257.5366782405856, 1257.5366782405856, 1226.3495924878498, 1226.3495924878498, 1199.345818602059, 1026.146847412157, 894.6657627413663, 776.0998011937304, 763.514339455696]
+#             if num_samples == 20:
+#                 lambda_list = [781.123992343782]
+# #                lambda_list = [781.123992343782, 765.9331733879504]
+# #                lambda_list = [825, 800]
+# #                lambda_list = [1268.0815729111753, 1268.0815729111753, 1289.6912301014315, 1289.6912301014315, 1289.6912301014315, 1289.6912301014315, 1289.6912301014315, 1289.6912301014315, 1289.6912301014315, 1282.8160606455085, 1282.8160606455085, 1252.8446224026345, 1056.7448705096183, 914.1346001244447, 781.123992343782, 765.9331733879504]
+#             lambda_ = lambda_list[theta_ind]
             
         elif dist == "normal":
             M = 0.01*np.eye(ny) #observation noise covariance
@@ -185,20 +186,20 @@ def main(dist, sim_type, num_sim, num_samples, num_noise_samples, T, plot_result
             x0_mean = np.zeros((nx,1))
             x0_mean[-1] = 1
             x0_cov = 0.01*np.eye(nx)
-            if num_samples == 5:
-                lambda_list = [785]
-#                lambda_list = [785, 778]
-#                lambda_list = [1385.555267778142, 1385.555267778142, 1358.3935503970677, 1358.3935503970677, 1358.3935503970677, 1358.3935503970677, 1358.3935503970677, 1358.3935503970677, 1358.3935503970677, 1358.3935503970677, 1296.168089557581, 1296.168089557581, 1070.7656103909276,  901.6821492696181, 773.9841316251334, 762.330690162348]
-            if num_samples == 10:
-                lambda_list = [791]
-#                lambda_list = [791, 780]
-#                lambda_list = [1425.4939614816144, 1425.4939614816144, 1322.0789570185766, 1322.0789570185766, 1322.0789570185766, 1322.0789570185766, 1322.0789570185766, 1322.0789570185766, 1322.0789570185766, 1322.0789570185766, 1314.6500249250216, 1258.672145646804, 1068.38175215323, 906.3784197953951, 777.9021911985495, 764.5118813117117]
-            if num_samples == 20:
-                lambda_list = [790]
-#                lambda_list = [790, 779]
-#                lambda_list = [1489.399258789312, 1489.399258789312, 1291.5109623563137, 1291.5109623563137, 1291.5109623563137, 1291.5109623563137, 1291.5109623563137, 1291.5109623563137, 1291.5109623563137, 1291.5109623563137, 1291.5109623563137, 1256.5724282476685, 1052.0678820527962, 897.8983301276867, 776.2229407903919, 763.4769507266147]
+#             if num_samples == 5:
+#                 lambda_list = [785]
+# #                lambda_list = [785, 778]
+# #                lambda_list = [1385.555267778142, 1385.555267778142, 1358.3935503970677, 1358.3935503970677, 1358.3935503970677, 1358.3935503970677, 1358.3935503970677, 1358.3935503970677, 1358.3935503970677, 1358.3935503970677, 1296.168089557581, 1296.168089557581, 1070.7656103909276,  901.6821492696181, 773.9841316251334, 762.330690162348]
+#             if num_samples == 10:
+#                 lambda_list = [791]
+# #                lambda_list = [791, 780]
+# #                lambda_list = [1425.4939614816144, 1425.4939614816144, 1322.0789570185766, 1322.0789570185766, 1322.0789570185766, 1322.0789570185766, 1322.0789570185766, 1322.0789570185766, 1322.0789570185766, 1322.0789570185766, 1314.6500249250216, 1258.672145646804, 1068.38175215323, 906.3784197953951, 777.9021911985495, 764.5118813117117]
+#             if num_samples == 20:
+#                 lambda_list = [790]
+# #                lambda_list = [790, 779]
+# #                lambda_list = [1489.399258789312, 1489.399258789312, 1291.5109623563137, 1291.5109623563137, 1291.5109623563137, 1291.5109623563137, 1291.5109623563137, 1291.5109623563137, 1291.5109623563137, 1291.5109623563137, 1291.5109623563137, 1256.5724282476685, 1052.0678820527962, 897.8983301276867, 776.2229407903919, 763.4769507266147]
 
-            lambda_ = lambda_list[theta_ind]
+#             lambda_ = lambda_list[theta_ind]
                             
         elif dist == "multimodal":
             M = 0.2*np.eye(ny) #observation noise covariance
@@ -245,8 +246,9 @@ def main(dist, sim_type, num_sim, num_samples, num_noise_samples, T, plot_result
 #                if dist=="normal":
                 mu_hat = 0*np.ones((T, nx, 1))
                 _, M_hat = gen_sample_dist(dist, T, num_noise_samples, mu_w=mu_v, Sigma_w=M, w_max=v_max, w_min=v_min) # generate M hat!
-    
-    
+        
+        M_hat = M_hat + 1e-6*np.eye(ny)
+
         #-------Create a random system-------
         system_data = (A, B, C, Q, Qf, R, M)
     #    print('Sys Data:', system_data)
@@ -276,6 +278,7 @@ def main(dist, sim_type, num_sim, num_samples, num_noise_samples, T, plot_result
                 lqg_.backward()
 
                 while not wdrc_.flag or not lqg_.flag or not drkf_wdrc_.flag:
+                    print("HERE!")
                     mu_hat[i], Sigma_hat[i] = gen_sample_dist(dist, T, num_samples, mu_w=mu_w, Sigma_w=Sigma_w, w_max=w_max, w_min=w_min)
                     drkf_wdrc_ = DRKF_WDRC(theta, T, dist, system_data, mu_hat[i], Sigma_hat[i], x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat)
                     wdrc_ = WDRC(theta, T, dist, system_data, mu_hat[i], Sigma_hat[i], x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat)
@@ -302,8 +305,8 @@ def main(dist, sim_type, num_sim, num_samples, num_noise_samples, T, plot_result
                 wdrc = WDRC(theta, T, dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat)
                 lqg = LQG(T, dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat)
 
-            drkf_wdrc.backward()
-            wdrc.backward()
+            drkf_wdrc.backward() 
+            wdrc.backward()       
             lqg.backward()
             
         if h_inf:
@@ -487,6 +490,7 @@ def main(dist, sim_type, num_sim, num_samples, num_noise_samples, T, plot_result
 #                        summarize([output_lqg_list[i]], [output_wdrc_list[i]], [output_h_infty_list[i]], dist, path, i, plot_results, h_inf)
 #                        print('---------------------')
 #             else:
+            print("num_samples : ", num_samples, " num_noise_samples : ", num_noise_samples)
             if sim_type == "multiple":
                 summarize(output_lqg_list, output_wdrc_list, output_drkf_wdrc_list , dist, path, num_sim, plot_results, True)
             else:
@@ -501,7 +505,7 @@ if __name__ == "__main__":
     parser.add_argument('--sim_type', required=False, default="multiple", type=str) #simulation type (single or multiple)
     parser.add_argument('--num_sim', required=False, default=500, type=int) #number of simulation runs
     parser.add_argument('--num_samples', required=False, default=5, type=int) #number of disturbance samples
-    parser.add_argument('--num_noise_samples', required=False, default=20, type=int) #number of noise samples
+    parser.add_argument('--num_noise_samples', required=False, default=10, type=int) #number of noise samples
     parser.add_argument('--horizon', required=False, default=100, type=int) #horizon length
     parser.add_argument('--plot', required=False, action="store_true") #plot results+
     parser.add_argument('--infinite', required=False, action="store_true") #infinite horizon settings if flagged

@@ -66,7 +66,7 @@ class LQG:
         P_new = P_ - P_ @ self.C.T @ temp
         return P_new
     
-    def kalman_filter(self, M_hat, x, P, y, mu_w=None, P_w=None, u = None):
+    def kalman_filter(self, M_hat, x, P, y, mu_w=None, u = None):
         #Performs state estimation based on the current state estimate, control input and new observation
         if u is None:
             #Initial state estimate
