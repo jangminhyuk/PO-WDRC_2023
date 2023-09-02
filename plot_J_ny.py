@@ -11,7 +11,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import argparse
 import pickle
-#impact of measurement nosie sample numbers
+#impact of number of observable generators
 def summarize(M_list, avg_cost, std_cost, avg_cost_lqg, std_cost_lqg, dist):
 #    t = np.array([10, 15, 20, 25, 30, 35, 40, 45, 50])
     

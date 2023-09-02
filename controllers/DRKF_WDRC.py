@@ -196,9 +196,9 @@ class DRKF_WDRC:
         
         sdp_prob.solve(solver=cp.MOSEK)
         Sigma = sdp_prob.variables()[0].value
-        cost = sdp_prob.value
+        X = sdp_prob.variables()[2].value
         status = sdp_prob.status
-        return Sigma, cost, status
+        return Sigma, X, status
 
     def kalman_filter_cov(self, M_hat, P, P_w=None):
         #Performs state estimation based on the current state estimate, control input and new observation
@@ -252,7 +252,6 @@ class DRKF_WDRC:
         sigma_min = cp.Parameter(nonneg=True)
         
         Sigma.value = Sigma_z
-        #Sigma_root.value = np.linalg.cholesky(Sigma_z)
         #Sigma_root.value = np.real(scipy.linalg.sqrtm(Sigma_z + 1e-4*np.eye(self.nx+self.ny)))
         Sigma_root.value = np.real(scipy.linalg.sqrtm(Sigma_z))
         radi.value = theta
@@ -343,8 +342,7 @@ class DRKF_WDRC:
                            ])
         
         #Measurement update
-        #print(np.linalg.eigvals(Sigma_z + 1e-4*np.eye(self.nx+self.ny)))
-        #print(np.min(np.linalg.eigvals(Sigma_z + 1e-4*np.eye(self.nx+self.ny))))
+        Sigma_z = Sigma_z + 1e-4*np.eye(self.nx+self.ny)
         
         S_xx, S_xy, S_yy = self.solve_DR_sdp(Sigma_z, self.theta) # used theta as a radius!!! (can be changed)
         
@@ -401,11 +399,12 @@ class DRKF_WDRC:
         for t in range(self.T):
             print("DRKF WDRC Offline step : ",t,"/",self.T)
             sdp_prob = self.gen_sdp(self.lambda_, self.M_hat[t])
-            sigma_wc[t], _, status = self.solve_sdp(sdp_prob, self.x_cov[t], self.P[t+1], self.S[t+1], self.Sigma_hat[t])
+            sigma_wc[t], X_wc, status = self.solve_sdp(sdp_prob, self.x_cov[t], self.P[t+1], self.S[t+1], self.Sigma_hat[t])
             if status in ["infeasible", "unbounded"]:
                 print(status, 'False!!!!!!!!!!!!!')
-            self.x_cov[t+1], self.S_xx[t+1], self.S_xy[t+1], self.S_yy[t+1] = self.DR_kalman_filter_cov(self.M_hat[t], self.x_cov[t], sigma_wc[t])
-
+            #self.x_cov[t+1], self.S_xx[t+1], self.S_xy[t+1], self.S_yy[t+1] = self.DR_kalman_filter_cov(self.M_hat[t], self.x_cov[t], self.Sigma_hat[t]) #choice 1
+            self.x_cov[t+1], self.S_xx[t+1], self.S_xy[t+1], self.S_yy[t+1] = self.DR_kalman_filter_cov(self.M_hat[t], self.x_cov[t], sigma_wc[t]) #choice 2
+            #self.x_cov[t+1], self.S_xx[t+1], self.S_xy[t+1], self.S_yy[t+1] = self.DR_kalman_filter_cov(self.M_hat[t], X_wc, sigma_wc[t]) #choice 3
 #            if np.min(self.C @ (self.A @ x_cov[t] @ self.A + sigma_wc[t]) @ self.C.T + self.M) < 0:
 #                print('False!!!!!!!!!!!!!')
 #                break

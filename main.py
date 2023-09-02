@@ -7,12 +7,15 @@ from controllers.LQG import LQG
 from controllers.WDRC import WDRC
 from controllers.DRKF_WDRC import DRKF_WDRC
 from controllers.MMSE_WDRC import MMSE_WDRC
+from controllers.MMSE_WDRC_onlyM import MMSE_WDRC_2
 from controllers.inf_LQG import inf_LQG
 from controllers.inf_WDRC import inf_WDRC
 from controllers.inf_DRKF_WDRC import inf_DRKF_WDRC
 from controllers.inf_H_infty import inf_H_infty
 
 from plot import summarize
+from plot_J import summarize_noise
+
 import os
 import pickle
 
@@ -86,12 +89,35 @@ def save_data(path, data):
     pickle.dump(data, output)
     output.close()
 
-def main(dist, sim_type, num_sim, num_samples, num_noise_samples, T, method, plot_results, infinite, out_of_sample, wc, h_inf):
+def main(dist, sim_type, num_sim, num_samples, num_noise_samples, T, method, plot_results, noise_plot_results, infinite, out_of_sample, wc, h_inf):
     lambda_ = 1000
-    for theta_ind, theta in enumerate([0.5]):
+    seed = 100
+    if noise_plot_results: # if you need to draw ploy_J
+        num_noise_list = [5, 10, 15, 20, 25, 30]
+    else:
+        num_noise_list = [num_noise_samples]
+    
+    # for the noise_plot_results!!
+    output_J_LQG_mean, output_J_WDRC_mean, output_J_DRKF_WDRC_mean, output_J_MMSE_WDRC_mean =[], [], [], []
+    output_J_LQG_std, output_J_WDRC_std, output_J_DRKF_WDRC_std, output_J_MMSE_WDRC_std =[], [], [], [] 
+    #-------Initialization-------
+    nx = 20 #state dimension
+    nu = 10 #control input dimension
+    ny = 12#output dimension
+    A, B, C = create_matrices(nx, ny, nu) #system matrices generation
+    #cost weights
+    Q = np.load("./inputs/Q.npy")
+    Qf = np.load("./inputs/Q_f.npy")    
+    R = np.load("./inputs/R.npy")
+        
+    for num_noise in num_noise_list:
 #    enumerate([0.5, 1])            
 #    enumerate([0.00001, 0.0001, 0.0005, 0.0015, 0.001, 0.00015, 0.002, 0.0025, 0.005, 0.01, 0.015, 0.05, 0.1, 1]):
                     #:
+        print("number of noise sample : ", num_noise)
+        print("number of disturbance sample : ", num_samples)
+        theta = 0.5
+        np.random.seed(seed) # fix Random seed!
         #Path for saving the results
         if infinite:
             if sim_type == "multiple":
@@ -111,18 +137,8 @@ def main(dist, sim_type, num_sim, num_samples, num_noise_samples, T, method, plo
             if not os.path.exists(path):
                 os.makedirs(path)
     
+        
         #-------Initialization-------
-        nx = 20 #state dimension
-        nu = 10 #control input dimension
-        ny = 12#output dimension
-        A, B, C = create_matrices(nx, ny, nu) #system matrices generation
-        #cost weights
-        Q = np.load("./inputs/Q.npy")
-        #np.asarray(np.bmat([[0.5*(np.eye(int(nx/2)) - 0.1*np.ones((int(nx/2), int(nx/2)))), np.zeros((int(nx/2), int(nx/2)))],
-        #                    [np.zeros((int(nx/2), int(nx/2))), 0.5
-        Qf = np.load("./inputs/Q_f.npy")    
-        R = np.load("./inputs/R.npy")
-    
         if dist =="uniform":
     #        M = 0.05*np.eye(ny) #observation noise covariance
             v_min = -0.4*np.ones(ny)
@@ -221,7 +237,8 @@ def main(dist, sim_type, num_sim, num_samples, num_noise_samples, T, method, plo
             x0_min = None
             x0_mean = np.array([[-1],[-1],[1],[1]])
             x0_cov = 0.001*np.eye(nx)
-    
+            
+        
         #-------Estimate the nominal distribution-------
         if out_of_sample:
             mu_hat = []
@@ -240,12 +257,12 @@ def main(dist, sim_type, num_sim, num_samples, num_noise_samples, T, method, plo
                 mu_hat, Sigma_hat = gen_sample_dist_inf(dist, num_samples, mu_w=mu_w, Sigma_w=Sigma_w, w_max=w_max, w_min=w_min)
 #                if dist=="normal":
                 mu_hat = 0*np.ones((nx, 1))
-                _, M_hat = gen_sample_dist(dist, T, num_noise_samples, mu_w=mu_v, Sigma_w=M, w_max=v_max, w_min=v_min) # generate M hat!
+                _, M_hat = gen_sample_dist(dist, T, num_noise, mu_w=mu_v, Sigma_w=M, w_max=v_max, w_min=v_min) # generate M hat!
             else:
                 mu_hat, Sigma_hat = gen_sample_dist(dist, T, num_samples, mu_w=mu_w, Sigma_w=Sigma_w, w_max=w_max, w_min=w_min)
 #                if dist=="normal":
                 mu_hat = 0*np.ones((T, nx, 1))
-                _, M_hat = gen_sample_dist(dist, T, num_noise_samples, mu_w=mu_v, Sigma_w=M, w_max=v_max, w_min=v_min) # generate M hat!
+                _, M_hat = gen_sample_dist(dist, T, num_noise, mu_w=mu_v, Sigma_w=M, w_max=v_max, w_min=v_min) # generate M hat!
         
         M_hat = M_hat + 1e-6*np.eye(ny)
 
@@ -256,6 +273,7 @@ def main(dist, sim_type, num_sim, num_samples, num_noise_samples, T, method, plo
         output_lqg_list = []
         output_wdrc_list = []
         output_drkf_wdrc_list = []
+        output_mmse_wdrc_list = []
         output_h_infty_list = []
         #Initialize WDRC and LQG controllers
         if out_of_sample:
@@ -278,7 +296,6 @@ def main(dist, sim_type, num_sim, num_samples, num_noise_samples, T, method, plo
                 lqg_.backward()
 
                 while not wdrc_.flag or not lqg_.flag or not drkf_wdrc_.flag:
-                    print("HERE!")
                     mu_hat[i], Sigma_hat[i] = gen_sample_dist(dist, T, num_samples, mu_w=mu_w, Sigma_w=Sigma_w, w_max=w_max, w_min=w_min)
                     drkf_wdrc_ = DRKF_WDRC(theta, T, dist, system_data, mu_hat[i], Sigma_hat[i], x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat)
                     wdrc_ = WDRC(theta, T, dist, system_data, mu_hat[i], Sigma_hat[i], x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat)
@@ -301,14 +318,15 @@ def main(dist, sim_type, num_sim, num_samples, num_noise_samples, T, method, plo
                     lqg = inf_LQG(T, dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat[0])
                     
             else:
-                if method==1: #method 1 means the DRKF method from NeurIPS Distributionally Robust Kalman Filtering
-                    drkf_wdrc = DRKF_WDRC(theta, T, dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat)
-                else: # method 2 means the MMSE estimation problem method from Adversial Analytics
-                    drkf_wdrc = MMSE_WDRC(theta, T, dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat)
+                #DRKF method from NeurIPS Distributionally Robust Kalman Filtering
+                drkf_wdrc = DRKF_WDRC(theta, T, dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat)
+                #MMSE estimation problem method(MMSE_WDRC: directly from Adversial Analytics(ambiguity for both x and v) /MMSE_WDRC_2: modified to handle the ambiguity only from observation noise v) 
+                mmse_wdrc = MMSE_WDRC_2(theta, T, dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat, num_noise_samples)
                 wdrc = WDRC(theta, T, dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat)
                 lqg = LQG(T, dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat)
 
-            drkf_wdrc.backward() 
+            drkf_wdrc.backward()
+            mmse_wdrc.backward()
             wdrc.backward()       
             lqg.backward()
             
@@ -355,7 +373,6 @@ def main(dist, sim_type, num_sim, num_samples, num_noise_samples, T, method, plo
     #
     
         if h_inf:
-            np.random.seed(1337)
             for i in range(num_sim):
 #                print('i: ', i)
         
@@ -370,8 +387,7 @@ def main(dist, sim_type, num_sim, num_samples, num_noise_samples, T, method, plo
                 print('cost (H_infty):', output_h_infty['cost'][0], 'time (H_infty):', output_h_infty['comp_time'])
     
     
-    
-        np.random.seed(1337)
+        #----------------------------
         print("Running DRKF_WDRC Forward step ...")
         for i in range(num_sim):
 #            print('i: ', i)
@@ -394,8 +410,30 @@ def main(dist, sim_type, num_sim, num_samples, num_noise_samples, T, method, plo
                output_drkf_wdrc_list.append(output_drkf_wdrc)
             
                print('cost (DRKF_WDRC):', output_drkf_wdrc['cost'][0], 'time (DRKF_WDRC):', output_drkf_wdrc['comp_time'])
-          
-        np.random.seed(1337)     
+        #----------------------------       
+        print("Running MMSE_WDRC Forward step ...")
+        for i in range(num_sim):
+#            print('i: ', i)
+            
+    
+            #Perform state estimation and apply the controller
+            if out_of_sample:
+                output_drkf_wdrc_sample  = []
+                for j in range(os_sample_size):
+                   output_drkf_wdrc_ = drkf_wdrc[i].forward()
+                   output_drkf_wdrc_sample.append(output_drkf_wdrc_)
+                output_drkf_wdrc[i] = output_drkf_wdrc_sample
+                obj[i] = drkf_wdrc[i].objective(drkf_wdrc[i].lambda_)
+            else:
+               if wc:
+                   output_mmse_wdrc = mmse_wdrc.forward()
+               else:
+                   output_mmse_wdrc = mmse_wdrc.forward()
+    
+               output_mmse_wdrc_list.append(output_mmse_wdrc)
+            
+               print('cost (MMSE_WDRC):', output_mmse_wdrc['cost'][0], 'time (MMSE_WDRC):', output_mmse_wdrc['comp_time'])
+        #----------------------------             
         print("Running WDRC Forward step ...")  
         for i in range(num_sim):
 #            print('i: ', i)
@@ -418,8 +456,7 @@ def main(dist, sim_type, num_sim, num_samples, num_noise_samples, T, method, plo
                output_wdrc_list.append(output_wdrc)
     
                print('cost (WDRC):', output_wdrc['cost'][0], 'time (WDRC):', output_wdrc['comp_time'])
-    
-        np.random.seed(1337)
+        #----------------------------
         print("Running LQG Forward step ...")
         for i in range(num_sim):
 #            print('i: ', i)
@@ -474,9 +511,52 @@ def main(dist, sim_type, num_sim, num_samples, num_noise_samples, T, method, plo
     #        print('Average OS cost: (LQG)', avg_os_cost_lqg, 'Std_os_cost (LQG):', std_os_cost_lqg)
             save_data(path + '/wdrc_os.pkl', [cost, rel])
     #        save_data(path + 'lqg_os.pkl', cost_lqg)
+        elif noise_plot_results:
+            J_LQG_list, J_WDRC_list, J_DRKF_WDRC_list, J_MMSE_WDRC_list = [], [], [], []
+            
+            #lqg
+            for out in output_lqg_list:
+                J_LQG_list.append(out['cost'])
+                
+            J_LQG_mean= np.mean(J_LQG_list, axis=0)
+            J_LQG_std = np.std(J_LQG_list, axis=0)
+            output_J_LQG_mean.append(J_LQG_mean[0])
+            output_J_LQG_std.append(J_LQG_std[0])
+            
+            #wdrc
+            for out in output_wdrc_list:
+                J_WDRC_list.append(out['cost'])
+                
+            J_WDRC_mean= np.mean(J_WDRC_list, axis=0)
+            J_WDRC_std = np.std(J_WDRC_list, axis=0)
+            output_J_WDRC_mean.append(J_WDRC_mean[0])
+            output_J_WDRC_std.append(J_WDRC_std[0])
+
+            #drkf-wdrc
+            for out in output_drkf_wdrc_list:
+                J_DRKF_WDRC_list.append(out['cost'])
+                
+            J_DRKF_WDRC_mean= np.mean(J_DRKF_WDRC_list, axis=0)
+            J_DRKF_WDRC_std = np.std(J_DRKF_WDRC_list, axis=0)
+            output_J_DRKF_WDRC_mean.append(J_DRKF_WDRC_mean[0])
+            output_J_DRKF_WDRC_std.append(J_DRKF_WDRC_std[0])
+            
+            #mmse-wdrc
+            for out in output_mmse_wdrc_list:
+                J_MMSE_WDRC_list.append(out['cost'])
+                
+            J_MMSE_WDRC_mean= np.mean(J_MMSE_WDRC_list, axis=0)
+            J_MMSE_WDRC_std = np.std(J_MMSE_WDRC_list, axis=0)
+            output_J_MMSE_WDRC_mean.append(J_MMSE_WDRC_mean[0])
+            output_J_MMSE_WDRC_std.append(J_MMSE_WDRC_std[0])
+            
+            print("num_noise_sample : ", num_noise, " / finished with dist : ", dist, "/ seed : ", seed)
+            print("Average cost (LQG) : ", J_LQG_mean[0], " Average cost (WDRC) : ", J_WDRC_mean[0], " Average cost (DRKF-WDRC) : ", J_DRKF_WDRC_mean[0], " Average cost (MMSE-WDRC) : ", J_MMSE_WDRC_mean[0])
+            print("std (LQG) : ", J_LQG_std[0], " std (WDRC) : ", J_WDRC_std[0], " std (DRKF-WDRC) : ", J_DRKF_WDRC_std[0], " std (MMSE-WDRC) : ", J_MMSE_WDRC_std[0])
         else:
             #Save results
             save_data(path + 'drkf_wdrc.pkl', output_drkf_wdrc_list)
+            save_data(path + 'mmse_wdrc.pkl', output_mmse_wdrc_list)
             save_data(path + 'wdrc.pkl', output_wdrc_list)
             save_data(path + 'lqg.pkl', output_lqg_list)
             if h_inf:
@@ -493,14 +573,35 @@ def main(dist, sim_type, num_sim, num_samples, num_noise_samples, T, method, plo
 #                        summarize([output_lqg_list[i]], [output_wdrc_list[i]], [output_h_infty_list[i]], dist, path, i, plot_results, h_inf)
 #                        print('---------------------')
 #             else:
-            print("num_samples : ", num_samples, " num_noise_samples : ", num_noise_samples)
+            print("dist : ", dist, "/ num_samples : ", num_samples, "/ num_noise_samples : ", num_noise, "/seed : ", seed)
+            
             if sim_type == "multiple":
-                summarize(output_lqg_list, output_wdrc_list, output_drkf_wdrc_list , dist, path, num_sim, plot_results, True)
+                summarize(output_lqg_list, output_wdrc_list, output_drkf_wdrc_list , output_mmse_wdrc_list, dist, path, num_sim, plot_results, True, True)
             else:
                 for i in range(num_sim):
                     print('i: ', i)
                     summarize([output_lqg_list[i]], [output_wdrc_list[i]], [output_drkf_wdrc_list[i]], dist, path, i, plot_results, True)
                     print('---------------------')
+    
+    # after running noise_samples lists!
+    if noise_plot_results:
+        path = "./results/{}/finite/multiple/num_noise_plot/".format(dist)
+        if not os.path.exists(path):
+            os.makedirs(path)
+            
+        save_data(path + 'lqg_mean.pkl', output_J_LQG_mean)
+        save_data(path + 'lqg_std.pkl', output_J_LQG_std) 
+        save_data(path + 'wdrc_mean.pkl', output_J_WDRC_mean)
+        save_data(path + 'wdrc_std.pkl', output_J_WDRC_std) 
+        save_data(path + 'drkf_wdrc_mean.pkl', output_J_DRKF_WDRC_mean)
+        save_data(path + 'drkf_wdrc_std.pkl', output_J_DRKF_WDRC_std)   
+        save_data(path + 'mmse_wdrc_mean.pkl', output_J_MMSE_WDRC_mean)
+        save_data(path + 'mmse_wdrc_std.pkl', output_J_MMSE_WDRC_std)   
+        #Summarize and plot the results
+        print('\n-------Summary-------')
+        print("dist : ", dist, "/ num_samples : ", num_samples, "/ num_noise_samples : ", num_noise_samples, " / noise sample effect PLOT / Seed : ",seed)
+        summarize_noise(num_noise_list, output_J_LQG_mean, output_J_LQG_std, output_J_WDRC_mean, output_J_WDRC_std, output_J_DRKF_WDRC_mean, output_J_DRKF_WDRC_std, output_J_MMSE_WDRC_mean, output_J_MMSE_WDRC_std, dist, path)
+        
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -510,8 +611,9 @@ if __name__ == "__main__":
     parser.add_argument('--num_samples', required=False, default=5, type=int) #number of disturbance samples
     parser.add_argument('--num_noise_samples', required=False, default=10, type=int) #number of noise samples
     parser.add_argument('--horizon', required=False, default=100, type=int) #horizon length
-    parser.add_argument('--method', required=False, default=1, type=int) #method 1 means DRKF(NeurIPS), method 2 means MMSE Estimation
+    parser.add_argument('--method', required=False, default=1, type=int) #method 1 means DRKF(NeurIPS), method 2 means MMSE Estimation, # NOT USED!!
     parser.add_argument('--plot', required=False, action="store_true") #plot results+
+    parser.add_argument('--noise_plot', required=False, action="store_true") #plot plotJ_results, (effect of num_noise_samples)
     parser.add_argument('--infinite', required=False, action="store_true") #infinite horizon settings if flagged
     parser.add_argument('--os', required=False, action="store_true")
     parser.add_argument('--wc', required=False, action="store_true")
@@ -519,4 +621,4 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     np.random.seed(100)
-    main(args.dist, args.sim_type, args.num_sim, args.num_samples, args.num_noise_samples, args.horizon, args.method, args.plot, args.infinite, args.os, args.wc, args.h_inf)
+    main(args.dist, args.sim_type, args.num_sim, args.num_samples, args.num_noise_samples, args.horizon, args.method, args.plot, args.noise_plot, args.infinite, args.os, args.wc, args.h_inf)

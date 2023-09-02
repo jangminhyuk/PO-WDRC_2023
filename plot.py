@@ -6,11 +6,12 @@ import matplotlib.pyplot as plt
 import argparse
 import pickle
 
-def summarize(out_lq_list, out_dr_list, out_drkf_list, dist, path, num, plot_results=True, drkf=False):
+def summarize(out_lq_list, out_dr_list, out_drkf_list, out_mmse_list, dist, path, num, plot_results=True, drkf=False, mmse=False):
     x_lqr_list, J_lqr_list, y_lqr_list, u_lqr_list = [], [], [], []
-    x_list, J_list, y_list, u_list = [], [], [], []
-    x_drkf_list, J_drkf_list, y_drkf_list, u_drkf_list = [], [], [], []
-    time_list, time_lqr_list, time_drkf_list = [], [], []
+    x_list, J_list, y_list, u_list = [], [], [], [] # original wdrc with ordinary Kalman Filter
+    x_drkf_list, J_drkf_list, y_drkf_list, u_drkf_list = [], [], [], [] # wdrc with Distributionally Robust kalman Filter (neurips)
+    x_mmse_list, J_mmse_list, y_mmse_list, u_mmse_list = [], [], [], [] # wdrc with Distributionally Robust MMSE estimation problem (Adversial Anayltics)
+    time_list, time_lqr_list, time_drkf_list, time_mmse_list = [], [], [], []
 #    SettlingTime_list, SettlingTime_lqr_list = [], []
 
 
@@ -53,7 +54,17 @@ def summarize(out_lq_list, out_dr_list, out_drkf_list, dist, path, num, plot_res
         x_drkf_std, J_drkf_std, y_drkf_std, u_drkf_std = np.std(x_drkf_list, axis=0), np.std(J_drkf_list, axis=0), np.std(y_drkf_list, axis=0), np.std(u_drkf_list, axis=0)
         time_drkf_ar = np.array(time_drkf_list)
         J_drkf_ar = np.array(J_drkf_list)
-             
+    if mmse:
+        for out in out_mmse_list:
+             x_mmse_list.append(out['state_traj'])
+             J_mmse_list.append(out['cost'])
+             y_mmse_list.append(out['output_traj'])
+             u_mmse_list.append(out['control_traj'])
+             time_mmse_list.append(out['comp_time'])
+        x_mmse_mean, J_mmse_mean, y_mmse_mean, u_mmse_mean = np.mean(x_mmse_list, axis=0), np.mean(J_mmse_list, axis=0), np.mean(y_mmse_list, axis=0), np.mean(u_mmse_list, axis=0)
+        x_mmse_std, J_mmse_std, y_mmse_std, u_mmse_std = np.std(x_mmse_list, axis=0), np.std(J_mmse_list, axis=0), np.std(y_mmse_list, axis=0), np.std(u_mmse_list, axis=0)
+        time_mmse_ar = np.array(time_mmse_list)
+        J_mmse_ar = np.array(J_mmse_list)         
         
     nx = x_mean.shape[1]
     T = u_mean.shape[0]
@@ -89,7 +100,18 @@ def summarize(out_lq_list, out_dr_list, out_drkf_list, dist, path, num, plot_res
                 if((x_drkf_mean[i,j] <= err_bound_min_drkf[j]) | (x_drkf_mean[i,j] >= err_bound_max_drkf[j])):
                     SettlingTime_drkf[j] = (i+1)*0.1
                     break
-            
+    #MMSE_WDRC            
+    if mmse:
+        avg = np.mean(x_mmse_mean[T-200:T,:], axis=0)        
+        err_bound_max_mmse = avg + 0.1*np.abs(avg)
+        err_bound_min_mmse = avg - 0.1*np.abs(avg)
+        SettlingTime_mmse = np.zeros(nx)
+        for j in range(nx):
+            for i in reversed(range(T)):
+                if((x_mmse_mean[i,j] <= err_bound_min_mmse[j]) | (x_mmse_mean[i,j] >= err_bound_max_mmse[j])):
+                    SettlingTime_mmse[j] = (i+1)*0.1
+                    break
+                        
     if plot_results:
         nx = x_mean.shape[1]
         T = u_mean.shape[0]
@@ -107,9 +129,13 @@ def summarize(out_lq_list, out_dr_list, out_drkf_list, dist, path, num, plot_res
                 plt.fill_between(t, x_lqr_mean[:,i, 0] + 0.3*x_lqr_std[:,i,0],
                                x_lqr_mean[:,i,0] - 0.3*x_lqr_std[:,i,0], facecolor='tab:red', alpha=0.3)
             if drkf:
-                plt.plot(t, x_drkf_mean[:,i,0], 'tab:purple', label='DRKF_WDRC')
+                plt.plot(t, x_drkf_mean[:,i,0], 'tab:purple', label='DRKF-WDRC')
                 plt.fill_between(t, x_drkf_mean[:,i, 0] + 0.3*x_drkf_std[:,i,0],
                                x_drkf_mean[:,i,0] - 0.3*x_drkf_std[:,i,0], facecolor='tab:purple', alpha=0.3)
+            if mmse:
+                plt.plot(t, x_mmse_mean[:,i,0], 'tab:green', label='MMSE-WDRC')
+                plt.fill_between(t, x_mmse_mean[:,i, 0] + 0.3*x_mmse_std[:,i,0],
+                               x_mmse_mean[:,i,0] - 0.3*x_mmse_std[:,i,0], facecolor='tab:green', alpha=0.3)
             
             plt.plot(t, x_mean[:,i,0], 'tab:blue', label='WDRC')
             plt.fill_between(t, x_mean[:,i,0] + 0.3*x_std[:,i,0],
@@ -140,9 +166,13 @@ def summarize(out_lq_list, out_dr_list, out_drkf_list, dist, path, num, plot_res
                 plt.fill_between(t, u_lqr_mean[:,i,0] + u_lqr_std[:,i,0],
                              u_lqr_mean[:,i,0] - u_lqr_std[:,i,0], facecolor='tab:red', alpha=0.3)
             if drkf:
-                plt.plot(t, u_drkf_mean[:,i,0], 'tab:purple', label='DRKF_WDRC')
+                plt.plot(t, u_drkf_mean[:,i,0], 'tab:purple', label='DRKF-WDRC')
                 plt.fill_between(t, u_drkf_mean[:,i,0] + u_drkf_std[:,i,0],
-                             u_drkf_mean[:,i,0] - u_drkf_std[:,i,0], facecolor='tab:purple', alpha=0.3)
+                             u_drkf_mean[:,i,0] - u_drkf_std[:,i,0], facecolor='tab:purple', alpha=0.3)                
+            if mmse:
+                plt.plot(t, u_mmse_mean[:,i,0], 'tab:green', label='MMSE-WDRC')
+                plt.fill_between(t, u_mmse_mean[:,i,0] + u_mmse_std[:,i,0],
+                             u_mmse_mean[:,i,0] - u_mmse_std[:,i,0], facecolor='tab:green', alpha=0.3)
 
             plt.plot(t, u_mean[:,i,0], 'tab:blue', label='WDRC')
             plt.fill_between(t, u_mean[:,i,0] + u_std[:,i,0],
@@ -165,9 +195,13 @@ def summarize(out_lq_list, out_dr_list, out_drkf_list, dist, path, num, plot_res
                 plt.fill_between(t, y_lqr_mean[:,i,0] + y_lqr_std[:,i,0],
                              y_lqr_mean[:,i, 0] - y_lqr_std[:,i,0], facecolor='tab:red', alpha=0.3)
             if drkf:
-                plt.plot(t, y_drkf_mean[:,i,0], 'tab:purple', label='DRKF_WDRC')
+                plt.plot(t, y_drkf_mean[:,i,0], 'tab:purple', label='DRKF-WDRC')
                 plt.fill_between(t, y_drkf_mean[:,i,0] + y_drkf_std[:,i,0],
                              y_drkf_mean[:,i, 0] - y_drkf_std[:,i,0], facecolor='tab:purple', alpha=0.3)
+            if mmse:
+                plt.plot(t, y_mmse_mean[:,i,0], 'tab:green', label='MMSE-WDRC')
+                plt.fill_between(t, y_mmse_mean[:,i,0] + y_mmse_std[:,i,0],
+                             y_mmse_mean[:,i, 0] - y_mmse_std[:,i,0], facecolor='tab:green', alpha=0.3)
             plt.plot(t, y_mean[:,i,0], 'tab:blue', label='WDRC')
             plt.fill_between(t, y_mean[:,i,0] + y_std[:,i,0],
                              y_mean[:,i, 0] - y_std[:,i,0], facecolor='tab:blue', alpha=0.3)
@@ -189,12 +223,17 @@ def summarize(out_lq_list, out_dr_list, out_drkf_list, dist, path, num, plot_res
         if J_lqr_list != []:
             plt.plot(t, J_lqr_mean, 'tab:red', label='LQG')
             plt.fill_between(t, J_lqr_mean + 0.25*J_lqr_std, J_lqr_mean - 0.25*J_lqr_std, facecolor='tab:red', alpha=0.3)
-        if drkf:
-            plt.plot(t, J_drkf_mean, 'tab:purple', label='DRKF_WDRC')
-            plt.fill_between(t, J_drkf_mean + 0.25*J_drkf_std, J_drkf_mean - 0.25*J_drkf_std, facecolor='tab:purple', alpha=0.3)
-
+            
         plt.plot(t, J_mean, 'tab:blue', label='WDRC')
         plt.fill_between(t, J_mean + 0.25*J_std, J_mean - 0.25*J_std, facecolor='tab:blue', alpha=0.3)
+        
+        if drkf:
+            plt.plot(t, J_drkf_mean, 'tab:purple', label='DRKF-WDRC')
+            plt.fill_between(t, J_drkf_mean + 0.25*J_drkf_std, J_drkf_mean - 0.25*J_drkf_std, facecolor='tab:purple', alpha=0.3)
+        if mmse:
+            plt.plot(t, J_mmse_mean, 'tab:green', label='MMSE-WDRC')
+            plt.fill_between(t, J_mmse_mean + 0.25*J_mmse_std, J_mmse_mean - 0.25*J_mmse_std, facecolor='tab:green', alpha=0.3)
+        
         plt.xlabel(r'$t$', fontsize=16)
         plt.ylabel(r'$V_t(x_t)$', fontsize=16)
         plt.legend(fontsize=16)
@@ -209,32 +248,48 @@ def summarize(out_lq_list, out_dr_list, out_drkf_list, dist, path, num, plot_res
         ax = fig.gca()
         t = np.arange(T+1)
         
-        if drkf:
+        if drkf and mmse:
+            max_bin = np.max([J_ar[:,0], J_lqr_ar[:,0], J_drkf_ar[:,0], J_mmse_ar[:,0]])
+            min_bin = np.min([J_ar[:,0], J_lqr_ar[:,0], J_drkf_ar[:,0], J_mmse_ar[:,0]])
+        elif drkf:
             max_bin = np.max([J_ar[:,0], J_lqr_ar[:,0], J_drkf_ar[:,0]])
             min_bin = np.min([J_ar[:,0], J_lqr_ar[:,0], J_drkf_ar[:,0]])
-        else:
+        elif mmse:
+            max_bin = np.max([J_ar[:,0], J_lqr_ar[:,0], J_mmse_ar[:,0]])
+            min_bin = np.min([J_ar[:,0], J_lqr_ar[:,0], J_mmse_ar[:,0]])    
+        else: 
             max_bin = np.max([J_ar[:,0], J_lqr_ar[:,0]])
             min_bin = np.min([J_ar[:,0], J_lqr_ar[:,0]])
 
         ax.hist(J_ar[:,0], bins=50, range=(min_bin,max_bin), color='tab:blue', label='WDRC', alpha=0.5, linewidth=0.5, edgecolor='tab:blue')
         ax.hist(J_lqr_ar[:,0], bins=50, range=(min_bin,max_bin), color='tab:red', label='LQG', alpha=0.5, linewidth=0.5, edgecolor='tab:red')
         if drkf:
-            ax.hist(J_drkf_ar[:,0], bins=50, range=(min_bin,max_bin), color='tab:purple', label='DRKF_WDRC', alpha=0.5, linewidth=0.5, edgecolor='tab:purple')
+            ax.hist(J_drkf_ar[:,0], bins=50, range=(min_bin,max_bin), color='tab:purple', label='DRKF-WDRC', alpha=0.5, linewidth=0.5, edgecolor='tab:purple')
+        if mmse:
+            ax.hist(J_mmse_ar[:,0], bins=50, range=(min_bin,max_bin), color='tab:green', label='MMSE-WDRC', alpha=0.5, linewidth=0.5, edgecolor='tab:green')
 
         ax.axvline(J_ar[:,0].mean(), color='navy', linestyle='dashed', linewidth=1.5)
         ax.axvline(J_lqr_ar[:,0].mean(), color='maroon', linestyle='dashed', linewidth=1.5)
         if drkf:
-            ax.axvline(J_drkf_ar[:,0].mean(), color='black', linestyle='dashed', linewidth=1.5)
+            ax.axvline(J_drkf_ar[:,0].mean(), color='purple', linestyle='dashed', linewidth=1.5)
+        if mmse:
+            ax.axvline(J_mmse_ar[:,0].mean(), color='green', linestyle='dashed', linewidth=1.5)
 
         plt.xticks(fontsize=16)
         plt.yticks(fontsize=16)
 
         handles, labels = plt.gca().get_legend_handles_labels()
-        if drkf:
-            order = [1, 2, 0]
+        if drkf and mmse:
+            order = [1, 0, 2, 3]
+            ax.legend([handles[idx] for idx in order], [labels[idx] for idx in order], fontsize=14)
+        elif drkf:
+            order = [1, 0, 2]
+            ax.legend([handles[idx] for idx in order], [labels[idx] for idx in order], fontsize=14)
+        elif mmse:
+            order = [1, 0, 2]
             ax.legend([handles[idx] for idx in order], [labels[idx] for idx in order], fontsize=14)
         else:
-            order = [1, 0]
+            order = [1, 0, 2]
             ax.legend([handles[idx] for idx in order], [labels[idx] for idx in order], fontsize=14)
 
         ax.grid()
@@ -248,12 +303,21 @@ def summarize(out_lq_list, out_dr_list, out_drkf_list, dist, path, num, plot_res
 
 
         plt.close('all')
-
-    if drkf:
-        print('cost_WDRC: {} ({})'.format(J_mean[0], J_std[0]) , 'cost_lqr:{} ({})'.format(J_lqr_mean[0],J_lqr_std[0]), 'cost_drkf_WDRC:{} ({})'.format(J_drkf_mean[0],J_drkf_std[0]))
-        print('time_WDRC: {} ({})'.format(time_ar.mean(), time_ar.std()), 'time_lqr: {} ({})'.format(time_lqr_ar.mean(), time_lqr_ar.std()), 'time_drkf_WDRC: {} ({})'.format(time_drkf_ar.mean(), time_drkf_ar.std()))
+    if drkf and mmse:
+        print( 'cost_lqr:{} ({})'.format(J_lqr_mean[0],J_lqr_std[0]),'cost_WDRC: {} ({})'.format(J_mean[0], J_std[0]) , 'cost_drkf_WDRC:{} ({})'.format(J_drkf_mean[0],J_drkf_std[0]), 'cost_mmse_WDRC:{} ({})'.format(J_mmse_mean[0],J_mmse_std[0]))
+        print( 'time_lqr: {} ({})'.format(time_lqr_ar.mean(), time_lqr_ar.std()),'time_WDRC: {} ({})'.format(time_ar.mean(), time_ar.std()), 'time_drkf_WDRC: {} ({})'.format(time_drkf_ar.mean(), time_drkf_ar.std()), 'time_mmse_WDRC: {} ({})'.format(time_mmse_ar.mean(), time_mmse_ar.std()))
     #    print('Settling time: {} ({})'.format(SettlingTime_ar.mean(axis=0), SettlingTime_ar.std(axis=0)), 'Settling time_lqr: {} ({})'.format(SettlingTime_lqr_ar.mean(axis=0), SettlingTime_lqr_ar.std(axis=0)))
-        print('Settling time_WDRC: {} '.format(SettlingTime), 'Settling time_lqr: {}'.format(SettlingTime_lqr), 'Settling time_drkf_WDRC: {}'.format(SettlingTime_drkf))
+        print( 'Settling time_lqr: {}'.format(SettlingTime_lqr),'Settling time_WDRC: {} '.format(SettlingTime), 'Settling time_drkf_WDRC: {}'.format(SettlingTime_drkf), 'Settling time_mmse_WDRC: {}'.format(SettlingTime_mmse)) 
+    elif drkf:
+        print( 'cost_lqr:{} ({})'.format(J_lqr_mean[0],J_lqr_std[0]),'cost_WDRC: {} ({})'.format(J_mean[0], J_std[0]) , 'cost_drkf_WDRC:{} ({})'.format(J_drkf_mean[0],J_drkf_std[0]))
+        print( 'time_lqr: {} ({})'.format(time_lqr_ar.mean(), time_lqr_ar.std()),'time_WDRC: {} ({})'.format(time_ar.mean(), time_ar.std()), 'time_drkf_WDRC: {} ({})'.format(time_drkf_ar.mean(), time_drkf_ar.std()))
+    #    print('Settling time: {} ({})'.format(SettlingTime_ar.mean(axis=0), SettlingTime_ar.std(axis=0)), 'Settling time_lqr: {} ({})'.format(SettlingTime_lqr_ar.mean(axis=0), SettlingTime_lqr_ar.std(axis=0)))
+        print( 'Settling time_lqr: {}'.format(SettlingTime_lqr),'Settling time_WDRC: {} '.format(SettlingTime), 'Settling time_drkf_WDRC: {}'.format(SettlingTime_drkf))
+    elif mmse:
+        print('cost_WDRC: {} ({})'.format(J_mean[0], J_std[0]) , 'cost_lqr:{} ({})'.format(J_lqr_mean[0],J_lqr_std[0]), 'cost_mmse_WDRC:{} ({})'.format(J_mmse_mean[0],J_mmse_std[0]))
+        print('time_WDRC: {} ({})'.format(time_ar.mean(), time_ar.std()), 'time_lqr: {} ({})'.format(time_lqr_ar.mean(), time_lqr_ar.std()), 'time_mmse_WDRC: {} ({})'.format(time_mmse_ar.mean(), time_mmse_ar.std()))
+    #    print('Settling time: {} ({})'.format(SettlingTime_ar.mean(axis=0), SettlingTime_ar.std(axis=0)), 'Settling time_lqr: {} ({})'.format(SettlingTime_lqr_ar.mean(axis=0), SettlingTime_lqr_ar.std(axis=0)))
+        print('Settling time_WDRC: {} '.format(SettlingTime), 'Settling time_lqr: {}'.format(SettlingTime_lqr), 'Settling time_mmse_WDRC: {}'.format(SettlingTime_mmse))
     else:
         print('cost_WDRC: {} ({})'.format(J_mean[0], J_std[0]) , 'cost_lqr:{} ({})'.format(J_lqr_mean[0],J_lqr_std[0]))
         print('time_WDRC: {} ({})'.format(time_ar.mean(), time_ar.std()), 'time_lqr: {} ({})'.format(time_lqr_ar.mean(), time_lqr_ar.std()))
@@ -294,7 +358,6 @@ if __name__ == "__main__":
             drkf_wdrc_file = open(path + 'drkf_wdrc.pkl', 'rb')
             drkf_wdrc_data = pickle.load(drkf_wdrc_file)
             drkf_wdrc_file.close()
-
 
         #Plot and Summarize
         if args.drkf:

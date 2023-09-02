@@ -11,7 +11,7 @@ import scipy
 # The Gelbrich MMSE Estimation Problem
 
 class MMSE_WDRC:
-    def __init__(self, theta, T, dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat):
+    def __init__(self, theta, T, dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat, num_noise_samples):
         self.dist = dist
         self.T = T
         self.A, self.B, self.C, self.Q, self.Qf, self.R, self.M = system_data
@@ -40,7 +40,7 @@ class MMSE_WDRC:
         elif self.dist=="uniform":
             self.lambda_ = 780.2396483109309
             
-        print("DRKF-WDRC")
+        print("MMSE-WDRC")
 #        self.lambda_ = self.optimize_penalty() #optimize penalty parameter for theta
 #        self.lambda_ = 3.5
         #self.binarysearch_infimum_penalty_finite()
@@ -201,7 +201,7 @@ class MMSE_WDRC:
         status = sdp_prob.status
         return Sigma, cost, status
 
-    def kalman_filter_cov(self, M_hat, P, P_w=None):
+    def kalman_filter_cov(self, M_hat, P, P_w=None): # not used!!
         #Performs state estimation based on the current state estimate, control input and new observation
         if P_w is None:
             #Initial state estimate
@@ -215,7 +215,7 @@ class MMSE_WDRC:
         P_new = P_ - P_ @ self.C.T @ temp
         return P_new
     
-    def kalman_filter(self, M_hat, x, P, y, mu_w=None, P_w=None, u = None):
+    def kalman_filter(self, M_hat, x, P, y, mu_w=None, P_w=None, u = None): # not used!!
         #Performs state estimation based on the current state estimate, control input and new observation
         if u is None:
             #Initial state estimate
@@ -239,18 +239,18 @@ class MMSE_WDRC:
         #construct problem
         #Variables
         Alpha = cp.Variable((self.nx, self.ny))
-        gamma_x = cp.Variable(nonneg = True)
-        gamma_v = cp.Variable(nonneg = True)
+        gamma_x = cp.Variable()
+        gamma_v = cp.Variable()
         U_x = cp.Variable((self.nx, self.nx), symmetric = True)
         V_x = cp.Variable((self.nx, self.nx), symmetric = True)
         U_v = cp.Variable((self.ny, self.ny), symmetric = True)
         V_v = cp.Variable((self.ny, self.ny), symmetric = True)
         
         #Parameters
-        Sigma_x = cp.Parameter((self.nx, self.nx), PSD=True)
-        Sigma_x_root = cp.Parameter((self.nx, self.nx), PSD=True)
-        Sigma_v = cp.Parameter((self.ny, self.ny), PSD=True)
-        Sigma_v_root = cp.Parameter((self.ny, self.ny), PSD=True)
+        Sigma_x = cp.Parameter((self.nx, self.nx))
+        Sigma_x_root = cp.Parameter((self.nx, self.nx))
+        Sigma_v = cp.Parameter((self.ny, self.ny))
+        Sigma_v_root = cp.Parameter((self.ny, self.ny))
         rho_x = cp.Parameter(nonneg = True)
         rho_v = cp.Parameter(nonneg = True)
         
@@ -267,10 +267,12 @@ class MMSE_WDRC:
         
         obj = cp.Minimize( gamma_x*(rho_x**2 - cp.trace(Sigma_x)) + cp.trace(U_x) + gamma_v*(rho_v**2 - cp.trace(Sigma_v)) + cp.trace(U_v) )
         constraints = [
-                U_x >> 0,
-                V_x >> 0,
-                U_v >> 0,
-                V_v >> 0,
+                gamma_x>=0,
+                gamma_v>=0,
+                U_x >>0,
+                V_x >>0,
+                U_v >>0,
+                V_v >>0,
                 cp.bmat([[U_x, gamma_x*Sigma_x_root],
                         [gamma_x*Sigma_x_root, V_x]
                         ]) >> 0,
@@ -296,7 +298,7 @@ class MMSE_WDRC:
         
         return Alpha_opt, gamma_x_opt
     
-    #DR Kalman FILTER !
+    #DR MMSE estimation !
     def DR_Estimation(self, x, Alpha, v, y, mu_w = None, u = None):
         if u is None:
             #Initial state estimate
@@ -318,12 +320,12 @@ class MMSE_WDRC:
         else:
             #Prediction update
             X_cov_ = self.A @ X_cov @ self.A.T + Cov_w
-           
+
         Alpha, gamma_x = self.solve_DR_sdp(M_hat, X_cov_)
         
         K = np.eye(self.nx)-Alpha @ self.C
-        temp = gamma_x*np.eye(self.nx)- K.T @ K
-        X_cov = (gamma_x**2) * np.linalg.inv(temp) @ X_cov_ @ np.linalg.inv(temp) # worst Cov
+        temp = np.linalg.inv(gamma_x*np.eye(self.nx)- K.T @ K)
+        X_cov = (gamma_x**2) * temp @ X_cov_ @ temp # worst Cov
         return X_cov, Alpha
     
     def riccati(self, Phi, P, S, r, z, Sigma_hat, mu_hat, lambda_, t):
@@ -373,13 +375,12 @@ class MMSE_WDRC:
         self.x_cov[0], self.Alpha[0]  = self.DR_Estimation_cov(self.M_hat[0], self.x0_cov)
         for t in range(self.T):
             print("MMSE WDRC Offline step : ",t,"/",self.T)
-            #print(self.x_cov[t])
-            sdp_prob = self.gen_sdp(self.lambda_, self.M_hat[t])
-            sigma_wc[t], _, status = self.solve_sdp(sdp_prob, self.x_cov[t], self.P[t+1], self.S[t+1], self.Sigma_hat[t])
-            if status in ["infeasible", "unbounded"]:
-                print(status, 'False!!!!!!!!!!!!!')
-            self.x_cov[t+1], self.Alpha[t+1] = self.DR_Estimation_cov(self.M_hat[t], self.x_cov[t], sigma_wc[t])
-
+            # sdp_prob = self.gen_sdp(self.lambda_, self.M_hat[t])
+            # sigma_wc[t], _, status = self.solve_sdp(sdp_prob, self.x_cov[t], self.P[t+1], self.S[t+1], self.Sigma_hat[t])
+            # if status in ["infeasible", "unbounded"]:
+            #     print(status, 'False!!!!!!!!!!!!!')
+            # self.x_cov[t+1], self.Alpha[t+1] = self.DR_Estimation_cov(self.M_hat[t], self.x_cov[t], sigma_wc[t])
+            self.x_cov[t+1], self.Alpha[t+1] = self.DR_Estimation_cov(self.M_hat[t], self.x_cov[t], self.Sigma_hat[t])
 #            if np.min(self.C @ (self.A @ x_cov[t] @ self.A + sigma_wc[t]) @ self.C.T + self.M) < 0:
 #                print('False!!!!!!!!!!!!!')
 #                break
