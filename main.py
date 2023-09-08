@@ -91,7 +91,7 @@ def save_data(path, data):
 
 def main(dist, sim_type, num_sim, num_samples, num_noise_samples, T, method, plot_results, noise_plot_results, infinite, out_of_sample, wc, h_inf):
     lambda_ = 1000
-    seed = 1234 # any value
+    seed = 100 # any value
     if noise_plot_results: # if you need to draw ploy_J
         num_noise_list = [5, 10, 15, 20, 25, 30]
     else:
