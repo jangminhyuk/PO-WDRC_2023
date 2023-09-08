@@ -175,30 +175,30 @@ class MMSE_WDRC_2:
     
     def gen_sdp(self, lambda_, M_hat):
             Sigma = cp.Variable((self.nx,self.nx), symmetric=True)
-            U = cp.Variable((self.nx,self.nx), symmetric=True)
-            V = cp.Variable((self.nx,self.nx), symmetric=True)
-            P_bar_1 = cp.Variable((self.nx,self.nx), symmetric=True)
+            Y = cp.Variable((self.nx,self.nx), symmetric=True)
+            X = cp.Variable((self.nx,self.nx), symmetric=True)
+            X_pred = cp.Variable((self.nx,self.nx), symmetric=True)
         
             P_var = cp.Parameter((self.nx,self.nx))
             S_var = cp.Parameter((self.nx,self.nx))
             Sigma_hat_12_var = cp.Parameter((self.nx,self.nx))
-            P_bar = cp.Parameter((self.nx,self.nx))
+            X_bar = cp.Parameter((self.nx,self.nx))
             
-            obj = cp.Maximize(cp.trace((P_var - lambda_*np.eye(self.nx)) @ Sigma) + 2*lambda_*cp.trace(U) + cp.trace(S_var @ V))
+            obj = cp.Maximize(cp.trace((P_var - lambda_*np.eye(self.nx)) @ Sigma) + 2*lambda_*cp.trace(Y) + cp.trace(S_var @ X))
             
             constraints = [
-                    cp.bmat([[Sigma_hat_12_var @ Sigma @ Sigma_hat_12_var, U],
-                             [U, np.eye(self.nx)]
+                    cp.bmat([[Sigma_hat_12_var @ Sigma @ Sigma_hat_12_var, Y],
+                             [Y, np.eye(self.nx)]
                              ]) >> 0,
                     Sigma >> 0,
-                    P_bar_1 >> 0,
-                    cp.bmat([[P_bar_1 - V, P_bar_1 @ self.C.T],
-                             [self.C @ P_bar_1, self.C @ P_bar_1 @ self.C.T + M_hat]
+                    X_pred >> 0,
+                    cp.bmat([[X_pred - X, X_pred @ self.C.T],
+                             [self.C @ X_pred, self.C @ X_pred @ self.C.T + M_hat]
                             ]) >> 0,        
-                    P_bar_1 == self.A @ P_bar @ self.A.T + Sigma,
-                    self.C @ P_bar_1 @ self.C.T + M_hat >> 0,
-                    U >> 0,
-                    V >> 0
+                    X_pred == self.A @ X_bar @ self.A.T + Sigma,
+                    self.C @ X_pred @ self.C.T + M_hat >> 0,
+                    Y >> 0,
+                    X >> 0
                     ]
             prob = cp.Problem(obj, constraints)
             return prob
@@ -210,6 +210,7 @@ class MMSE_WDRC_2:
         params[1].value = S
 #        params[2].value = np.linalg.cholesky(Sigma_hat)
         params[2].value = np.real(scipy.linalg.sqrtm(Sigma_hat + 1e-4*np.eye(self.nx)))
+        #params[2].value = np.real(scipy.linalg.sqrtm(Sigma_hat)) # need to be erased!! 
         params[3].value = x_cov
         
         sdp_prob.solve(solver=cp.MOSEK)
@@ -279,8 +280,8 @@ class MMSE_WDRC_2:
         obj = cp.Minimize( cp.trace(U) + gamma_v*(rho_v**2 - cp.trace(Sigma_v)) + cp.trace(U_v) )
         constraints = [
                 gamma_v>=0,
-                U >>0,
-                U_v >>0,
+                #U >>0,
+                #UU_v >>0,
                 V_v >>0,
                 cp.bmat([[U, Sigma_x_root @ (np.eye(self.nx)- Alpha @ self.C).T],
                         [(np.eye(self.nx)- Alpha @ self.C) @ Sigma_x_root, np.eye(self.nx)]
@@ -326,10 +327,83 @@ class MMSE_WDRC_2:
             #Prediction update
             X_cov_ = self.A @ X_cov @ self.A.T + Cov_w # using worst case
 
+        #X_cov_ = X_cov# need to be erased!!
         Alpha= self.solve_DR_sdp(M_hat, X_cov_)
-        
+        #X_cov_ = X_cov_ -  1e-6*np.eye(self.nx)# need to be erased!!
+        #Alpha= self.solve_DR_sdp(M_hat, X_cov) #need to be erased
         return X_cov_, Alpha
     
+    def DR_Estimation_cov_initial(self, M_hat, X_cov):
+        
+        #X_cov_ = X_cov # need to be erased! just for test
+        Alpha, gamma_x = self.solve_DR_sdp_initial(M_hat, X_cov)
+        
+        K = np.eye(self.nx)-Alpha @ self.C
+        temp = np.linalg.inv(gamma_x*np.eye(self.nx)- K.T @ K)
+        X_cov = (gamma_x**2) * temp @ X_cov @ temp # worst Cov
+        return X_cov , Alpha
+    def solve_DR_sdp_initial(self, M_hat, X_cov):
+        #construct problem
+        #Variables
+        Alpha = cp.Variable((self.nx, self.ny))
+        gamma_x = cp.Variable()
+        gamma_v = cp.Variable()
+        U_x = cp.Variable((self.nx, self.nx), symmetric = True)
+        V_x = cp.Variable((self.nx, self.nx), symmetric = True)
+        U_v = cp.Variable((self.ny, self.ny), symmetric = True)
+        V_v = cp.Variable((self.ny, self.ny), symmetric = True)
+        
+        #Parameters
+        Sigma_x = cp.Parameter((self.nx, self.nx))
+        Sigma_x_root = cp.Parameter((self.nx, self.nx))
+        Sigma_v = cp.Parameter((self.ny, self.ny))
+        Sigma_v_root = cp.Parameter((self.ny, self.ny))
+        rho_x = cp.Parameter(nonneg = True)
+        rho_v = cp.Parameter(nonneg = True)
+        
+        Sigma_x.value = X_cov
+        #Sigma_x_root.value = np.real(scipy.linalg.sqrtm(X_cov + 1e-4*np.eye(self.nx)))
+        Sigma_x_root.value = np.real(scipy.linalg.sqrtm(X_cov))
+        
+        Sigma_v.value = M_hat
+        #Sigma_v_root.value = np.real(scipy.linalg.sqrtm(M_hat + 1e-4*np.eye(self.ny)))
+        Sigma_v_root.value = np.real(scipy.linalg.sqrtm(M_hat))
+        
+        rho_x.value = self.theta
+        rho_v.value = self.theta # can be modified!
+        
+        obj = cp.Minimize( gamma_x*(rho_x**2 - cp.trace(Sigma_x)) + cp.trace(U_x) + gamma_v*(rho_v**2 - cp.trace(Sigma_v)) + cp.trace(U_v) )
+        constraints = [
+                gamma_x>=0,
+                gamma_v>=0,
+                U_x >>0,
+                V_x >>0,
+                U_v >>0,
+                V_v >>0,
+                cp.bmat([[U_x, gamma_x*Sigma_x_root],
+                        [gamma_x*Sigma_x_root, V_x]
+                        ]) >> 0,
+                cp.bmat([[gamma_x*np.eye(self.nx)-V_x, np.eye(self.nx)-self.C.T @ Alpha.T],
+                        [np.eye(self.nx)-Alpha @ self.C , np.eye(self.nx)]
+                        ]) >> 0,
+                cp.bmat([[U_v, gamma_v*Sigma_v_root],
+                        [gamma_v*Sigma_v_root, V_v]
+                        ]) >> 0,
+                cp.bmat([[gamma_v*np.eye(self.ny)-V_v, Alpha.T],
+                        [Alpha, np.eye(self.nx)]
+                        ]) >> 0
+                ]
+        
+        prob = cp.Problem(obj, constraints)
+        prob.solve(solver=cp.MOSEK)
+        
+        if prob.status in ["infeasible", "unbounded"]:
+            print(prob.status, 'False in DRKF method 2!!!!!!!!!!!!!')
+        
+        Alpha_opt = Alpha.value
+        gamma_x_opt = gamma_x.value
+        
+        return Alpha_opt, gamma_x_opt
     def riccati(self, Phi, P, S, r, z, Sigma_hat, mu_hat, lambda_, t):
         #Riccati equation corresponding to the Theorem 1
 
@@ -374,14 +448,29 @@ class MMSE_WDRC_2:
         self.Alpha = np.zeros((self.T+1, self.nx, self.ny))
         sigma_wc = np.zeros((self.T, self.nx, self.nx))
 
-        self.x_cov[0], self.Alpha[0]  = self.DR_Estimation_cov(self.M_hat[0], self.x0_cov)
+        #self.x_cov[0], self.Alpha[0]  = self.DR_Estimation_cov_initial(self.M_hat[0], self.x0_cov) # modified!
+        #_, self.Alpha[1]  = self.DR_Estimation_cov_initial(self.M_hat[0], self.x_cov[0]) #self.x_cov[] contains worst case covariance
+        self.x_cov[0], self.Alpha[0]  = self.DR_Estimation_cov_initial(self.M_hat[0], self.x0_cov)
         for t in range(self.T):
             print("MMSE WDRC Offline step : ",t,"/",self.T)
             sdp_prob = self.gen_sdp(self.lambda_, self.M_hat[t])
-            sigma_wc[t], X , status = self.solve_sdp(sdp_prob, self.x_cov[t], self.P[t+1], self.S[t+1], self.Sigma_hat[t])
+            sigma_wc[t], X , status = self.solve_sdp(sdp_prob, self.x_cov[t], self.P[t+1], self.S[t+1], self.Sigma_hat[t]) # X is the worst cov in (t+1)
             if status in ["infeasible", "unbounded"]:
                 print(status, 'False!!!!!!!!!!!!!')
-            self.x_cov[t+1], self.Alpha[t+1] = self.DR_Estimation_cov(self.M_hat[t], X, sigma_wc[t])
+                
+            #choice MM-7  # below 3 lines need to be erased except MM-7
+            # X_ = self.A @ self.x_cov[t] @ self.A.T + sigma_wc[t]
+            # temp = np.linalg.solve(self.C @ X_ @ self.C.T + self.M_hat[t], self.C @ X_)
+            # X_wc = X_ - X_ @ self.C.T @ temp #worst covariance X
+            # #self.x_cov[t+1], self.Alpha[t+1] = self.DR_Estimation_cov(self.M_hat[t+1], X_wc, sigma_wc[t]) #choice MM-7
+            # self.x_cov[t+1], self.Alpha[t+1] = self.DR_Estimation_cov(self.M_hat[t], X_wc, sigma_wc[t]) #choice MM-8
+            
+            #self.x_cov[t+1], self.Alpha[t+1] = self.DR_Estimation_cov(self.M_hat[t], self.x_cov[t], sigma_wc[t]) #choice MM-2 # Mosek error sometimes happens
+            #self.x_cov[t+1] = X # need to be erased!
+            self.x_cov[t+1], self.Alpha[t+1] = self.DR_Estimation_cov(self.M_hat[t], X, sigma_wc[t]) #choice MM-3 # Best option for MMSE but not good for theory
+            #self.x_cov[t+1], self.Alpha[t+1] = self.DR_Estimation_cov(self.M_hat[t], X, self.Sigma_hat[t+1]) #choice MM-4
+            #self.x_cov[t+1], self.Alpha[t+1] = self.DR_Estimation_cov(self.M_hat[t+1], X, self.Sigma_hat[t+1]) #choice MM-5
+            #self.x_cov[t+2], self.Alpha[t+2] = self.DR_Estimation_cov(self.M_hat[t], X, self.Sigma_hat[t+1]) #choice MM-6
 #            if np.min(self.C @ (self.A @ x_cov[t] @ self.A + sigma_wc[t]) @ self.C.T + self.M) < 0:
 #                print('False!!!!!!!!!!!!!')
 #                break
