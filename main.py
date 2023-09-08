@@ -91,7 +91,7 @@ def save_data(path, data):
 
 def main(dist, sim_type, num_sim, num_samples, num_noise_samples, T, method, plot_results, noise_plot_results, infinite, out_of_sample, wc, h_inf):
     lambda_ = 1000
-    seed = 100
+    seed = 1234 # any value
     if noise_plot_results: # if you need to draw ploy_J
         num_noise_list = [5, 10, 15, 20, 25, 30]
     else:
@@ -257,12 +257,12 @@ def main(dist, sim_type, num_sim, num_samples, num_noise_samples, T, method, plo
                 mu_hat, Sigma_hat = gen_sample_dist_inf(dist, num_samples, mu_w=mu_w, Sigma_w=Sigma_w, w_max=w_max, w_min=w_min)
 #                if dist=="normal":
                 mu_hat = 0*np.ones((nx, 1))
-                _, M_hat = gen_sample_dist(dist, T, num_noise, mu_w=mu_v, Sigma_w=M, w_max=v_max, w_min=v_min) # generate M hat!
+                _, M_hat = gen_sample_dist(dist, T+1, num_noise, mu_w=mu_v, Sigma_w=M, w_max=v_max, w_min=v_min) # generate M hat!
             else:
-                mu_hat, Sigma_hat = gen_sample_dist(dist, T, num_samples, mu_w=mu_w, Sigma_w=Sigma_w, w_max=w_max, w_min=w_min)
+                mu_hat, Sigma_hat = gen_sample_dist(dist, T+1, num_samples, mu_w=mu_w, Sigma_w=Sigma_w, w_max=w_max, w_min=w_min)
 #                if dist=="normal":
                 mu_hat = 0*np.ones((T, nx, 1))
-                _, M_hat = gen_sample_dist(dist, T, num_noise, mu_w=mu_v, Sigma_w=M, w_max=v_max, w_min=v_min) # generate M hat!
+                _, M_hat = gen_sample_dist(dist, T+1, num_noise, mu_w=mu_v, Sigma_w=M, w_max=v_max, w_min=v_min) # generate M hat!
         
         M_hat = M_hat + 1e-6*np.eye(ny)
 
@@ -325,8 +325,9 @@ def main(dist, sim_type, num_sim, num_samples, num_noise_samples, T, method, plo
                 wdrc = WDRC(theta, T, dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat)
                 lqg = LQG(T, dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat)
 
-            drkf_wdrc.backward()
             mmse_wdrc.backward()
+            drkf_wdrc.backward()
+            
             wdrc.backward()       
             lqg.backward()
             
@@ -386,7 +387,7 @@ def main(dist, sim_type, num_sim, num_samples, num_noise_samples, T, method, plo
         
                 print('cost (H_infty):', output_h_infty['cost'][0], 'time (H_infty):', output_h_infty['comp_time'])
     
-    
+        np.random.seed(seed) # fix Random seed!
         #----------------------------
         print("Running DRKF_WDRC Forward step ...")
         for i in range(num_sim):
@@ -411,6 +412,7 @@ def main(dist, sim_type, num_sim, num_samples, num_noise_samples, T, method, plo
             
                print('cost (DRKF_WDRC):', output_drkf_wdrc['cost'][0], 'time (DRKF_WDRC):', output_drkf_wdrc['comp_time'])
         #----------------------------       
+        np.random.seed(seed) # fix Random seed!
         print("Running MMSE_WDRC Forward step ...")
         for i in range(num_sim):
 #            print('i: ', i)
@@ -434,6 +436,7 @@ def main(dist, sim_type, num_sim, num_samples, num_noise_samples, T, method, plo
             
                print('cost (MMSE_WDRC):', output_mmse_wdrc['cost'][0], 'time (MMSE_WDRC):', output_mmse_wdrc['comp_time'])
         #----------------------------             
+        np.random.seed(seed) # fix Random seed!
         print("Running WDRC Forward step ...")  
         for i in range(num_sim):
 #            print('i: ', i)
@@ -457,6 +460,7 @@ def main(dist, sim_type, num_sim, num_samples, num_noise_samples, T, method, plo
     
                print('cost (WDRC):', output_wdrc['cost'][0], 'time (WDRC):', output_wdrc['comp_time'])
         #----------------------------
+        np.random.seed(seed) # fix Random seed!
         print("Running LQG Forward step ...")
         for i in range(num_sim):
 #            print('i: ', i)
@@ -599,7 +603,7 @@ def main(dist, sim_type, num_sim, num_samples, num_noise_samples, T, method, plo
         save_data(path + 'mmse_wdrc_std.pkl', output_J_MMSE_WDRC_std)   
         #Summarize and plot the results
         print('\n-------Summary-------')
-        print("dist : ", dist, "/ num_samples : ", num_samples, "/ num_noise_samples : ", num_noise_samples, " / noise sample effect PLOT / Seed : ",seed)
+        print("dist : ", dist, "/ num_disturbance_samples : ", num_samples, " / noise sample effect PLOT / Seed : ",seed)
         summarize_noise(num_noise_list, output_J_LQG_mean, output_J_LQG_std, output_J_WDRC_mean, output_J_WDRC_std, output_J_DRKF_WDRC_mean, output_J_DRKF_WDRC_std, output_J_MMSE_WDRC_mean, output_J_MMSE_WDRC_std, dist, path)
         
 

@@ -157,30 +157,30 @@ class DRKF_WDRC:
     
     def gen_sdp(self, lambda_, M_hat):
             Sigma = cp.Variable((self.nx,self.nx), symmetric=True)
-            U = cp.Variable((self.nx,self.nx), symmetric=True)
-            V = cp.Variable((self.nx,self.nx), symmetric=True)
-            P_bar_1 = cp.Variable((self.nx,self.nx), symmetric=True)
+            Y = cp.Variable((self.nx,self.nx), symmetric=True)
+            X = cp.Variable((self.nx,self.nx), symmetric=True)
+            X_pred = cp.Variable((self.nx,self.nx), symmetric=True)
         
             P_var = cp.Parameter((self.nx,self.nx))
             S_var = cp.Parameter((self.nx,self.nx))
             Sigma_hat_12_var = cp.Parameter((self.nx,self.nx))
-            P_bar = cp.Parameter((self.nx,self.nx))
+            X_bar = cp.Parameter((self.nx,self.nx))
             
-            obj = cp.Maximize(cp.trace((P_var - lambda_*np.eye(self.nx)) @ Sigma) + 2*lambda_*cp.trace(U) + cp.trace(S_var @ V))
+            obj = cp.Maximize(cp.trace((P_var - lambda_*np.eye(self.nx)) @ Sigma) + 2*lambda_*cp.trace(Y) + cp.trace(S_var @ X))
             
             constraints = [
-                    cp.bmat([[Sigma_hat_12_var @ Sigma @ Sigma_hat_12_var, U],
-                             [U, np.eye(self.nx)]
+                    cp.bmat([[Sigma_hat_12_var @ Sigma @ Sigma_hat_12_var, Y],
+                             [Y, np.eye(self.nx)]
                              ]) >> 0,
                     Sigma >> 0,
-                    P_bar_1 >> 0,
-                    cp.bmat([[P_bar_1 - V, P_bar_1 @ self.C.T],
-                             [self.C @ P_bar_1, self.C @ P_bar_1 @ self.C.T + M_hat]
+                    X_pred >> 0,
+                    cp.bmat([[X_pred - X, X_pred @ self.C.T],
+                             [self.C @ X_pred, self.C @ X_pred @ self.C.T + M_hat]
                             ]) >> 0,        
-                    P_bar_1 == self.A @ P_bar @ self.A.T + Sigma,
-                    self.C @ P_bar_1 @ self.C.T + M_hat >> 0,
-                    U >> 0,
-                    V >> 0
+                    X_pred == self.A @ X_bar @ self.A.T + Sigma,
+                    self.C @ X_pred @ self.C.T + M_hat >> 0,
+                    Y >> 0,
+                    X >> 0
                     ]
             prob = cp.Problem(obj, constraints)
             return prob
@@ -403,8 +403,8 @@ class DRKF_WDRC:
             if status in ["infeasible", "unbounded"]:
                 print(status, 'False!!!!!!!!!!!!!')
             #self.x_cov[t+1], self.S_xx[t+1], self.S_xy[t+1], self.S_yy[t+1] = self.DR_kalman_filter_cov(self.M_hat[t], self.x_cov[t], self.Sigma_hat[t]) #choice 1
-            self.x_cov[t+1], self.S_xx[t+1], self.S_xy[t+1], self.S_yy[t+1] = self.DR_kalman_filter_cov(self.M_hat[t], self.x_cov[t], sigma_wc[t]) #choice 2
-            #self.x_cov[t+1], self.S_xx[t+1], self.S_xy[t+1], self.S_yy[t+1] = self.DR_kalman_filter_cov(self.M_hat[t], X_wc, sigma_wc[t]) #choice 3
+            #self.x_cov[t+1], self.S_xx[t+1], self.S_xy[t+1], self.S_yy[t+1] = self.DR_kalman_filter_cov(self.M_hat[t], self.x_cov[t], sigma_wc[t]) #choice 2
+            self.x_cov[t+1], self.S_xx[t+1], self.S_xy[t+1], self.S_yy[t+1] = self.DR_kalman_filter_cov(self.M_hat[t], X_wc, sigma_wc[t]) #choice 3 is the best option (checked by experiment)
 #            if np.min(self.C @ (self.A @ x_cov[t] @ self.A + sigma_wc[t]) @ self.C.T + self.M) < 0:
 #                print('False!!!!!!!!!!!!!')
 #                break

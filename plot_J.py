@@ -51,8 +51,10 @@ def summarize_noise(num_noise_list, avg_cost_lqg, std_cost_lqg, avg_cost_wdrc, s
     # plt.plot(t, J_true_mean, '#103E5E', linestyle='dashed', label='WDRC (true)')
     # plt.fill_between(t, J_true_mean + 0.25*J_true_std, J_true_mean - 0.25*J_true_std, facecolor='#103E5E', alpha=0.3)
     
-    plt.plot(t, J_lqr_mean, 'tab:red', label='LQG (sample)')
-    plt.fill_between(t, J_lqr_mean + 0.25*J_lqr_std, J_lqr_mean - 0.25*J_lqr_std, facecolor='tab:red', alpha=0.3)
+    
+    #----------------------------------------------
+    #plt.plot(t, J_lqr_mean, 'tab:red', label='LQG (sample)')
+    #plt.fill_between(t, J_lqr_mean + 0.25*J_lqr_std, J_lqr_mean - 0.25*J_lqr_std, facecolor='tab:red', alpha=0.3)
     
     plt.plot(t, J_wdrc_mean, 'tab:blue', label='WDRC (sample)')
     plt.fill_between(t, J_wdrc_mean + J_wdrc_std, J_wdrc_mean - J_wdrc_std, facecolor='tab:blue', alpha=0.3)
@@ -71,8 +73,9 @@ def summarize_noise(num_noise_list, avg_cost_lqg, std_cost_lqg, avg_cost_wdrc, s
     plt.xlim([t[0], t[-1]])
     plt.xticks(fontsize=16)
     plt.yticks(fontsize=16)
-    plt.savefig(path +'J_comp.pdf', dpi=300, bbox_inches="tight")
+    plt.savefig(path +'/J_comp.pdf', dpi=300, bbox_inches="tight")
     plt.clf()
+    print("hi")
 
 
 if __name__ == "__main__":
@@ -139,12 +142,39 @@ if __name__ == "__main__":
     #     std_cost_true_lqg = [np.std(J_list_lqg, axis=0)]
     path = "./results/{}/finite/multiple/num_noise_plot".format(args.dist)
     num_noise_list = [5, 10, 15, 20, 25, 30]
-    avg_cost_lqg = [25576.348, 5473.018, 3682.205, 3588.105, 3514.703, 3399.839]
-    avg_cost_wdrc = [4703.05, 1749.400, 1757.495, 1835.393, 1895.03, 1870.068]
-    avg_cost_drkf_wdrc = [2856.819, 2484.1349, 2304.143, 2633.690, 2655.365, 2523.628]
-    avg_cost_mmse_wdrc = [2426.47, 2357.985, 2336.873, 2381.514, 2430.105, 2423.822]
-    std_cost_lqg = [7481.319, 1439.306, 829.679, 901.372, 846.776, 825.623]
-    std_cost_wdrc = [906.994, 270.930, 279.029, 317.802, 336.705, 327.673]
-    std_cost_drkf_wdrc = [607.073, 451.054, 390.515, 476.987, 518.819, 468.139]
-    std_cost_mmse_wdrc = [828.041, 797.635, 768.956, 791.828, 848.611, 813.465]
+    # avg_cost_lqg = [25576.348, 5473.018, 3682.205, 3588.105, 3514.703, 3399.839]
+    # avg_cost_wdrc = [4703.05, 1749.400, 1757.495, 1835.393, 1895.03, 1870.068]
+    # avg_cost_drkf_wdrc = [2856.819, 2484.1349, 2304.143, 2633.690, 2655.365, 2523.628]
+    # avg_cost_mmse_wdrc = [2426.47, 2357.985, 2336.873, 2381.514, 2430.105, 2423.822]
+    # std_cost_lqg = [7481.319, 1439.306, 829.679, 901.372, 846.776, 825.623]
+    # std_cost_wdrc = [906.994, 270.930, 279.029, 317.802, 336.705, 327.673]
+    # std_cost_drkf_wdrc = [607.073, 451.054, 390.515, 476.987, 518.819, 468.139]
+    # std_cost_mmse_wdrc = [828.041, 797.635, 768.956, 791.828, 848.611, 813.465]
+    avg_cost_lqg_file = open(path + '/lqg_mean.pkl', 'rb' )
+    avg_cost_lqg = pickle.load(avg_cost_lqg_file)
+    avg_cost_lqg_file.close()
+    std_cost_lqg_file = open(path + '/lqg_std.pkl', 'rb' )
+    std_cost_lqg = pickle.load(std_cost_lqg_file)
+    std_cost_lqg_file.close()
+    
+    avg_cost_wdrc_file = open(path + '/wdrc_mean.pkl', 'rb' )
+    avg_cost_wdrc = pickle.load(avg_cost_wdrc_file)
+    avg_cost_wdrc_file.close()
+    std_cost_wdrc_file = open(path + '/wdrc_std.pkl', 'rb' )
+    std_cost_wdrc = pickle.load(std_cost_wdrc_file)
+    std_cost_wdrc_file.close()
+    
+    avg_cost_drkf_wdrc_file = open(path + '/drkf_wdrc_mean.pkl', 'rb' )
+    avg_cost_drkf_wdrc = pickle.load(avg_cost_drkf_wdrc_file)
+    avg_cost_drkf_wdrc_file.close()
+    std_cost_drkf_wdrc_file = open(path + '/drkf_wdrc_std.pkl', 'rb' )
+    std_cost_drkf_wdrc = pickle.load(std_cost_drkf_wdrc_file)
+    std_cost_drkf_wdrc_file.close()
+    
+    avg_cost_mmse_wdrc_file = open(path + '/mmse_wdrc_mean.pkl', 'rb' )
+    avg_cost_mmse_wdrc = pickle.load(avg_cost_mmse_wdrc_file)
+    avg_cost_mmse_wdrc_file.close()
+    std_cost_mmse_wdrc_file = open(path + '/mmse_wdrc_std.pkl', 'rb' )
+    std_cost_mmse_wdrc = pickle.load(std_cost_mmse_wdrc_file)
+    std_cost_mmse_wdrc_file.close()
     summarize_noise(num_noise_list, avg_cost_lqg, std_cost_lqg, avg_cost_wdrc, std_cost_wdrc, avg_cost_drkf_wdrc, std_cost_drkf_wdrc, avg_cost_mmse_wdrc, std_cost_mmse_wdrc, args.dist, path)
