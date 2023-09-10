@@ -300,9 +300,12 @@ class MMSE_WDRC_2:
         if prob.status in ["infeasible", "unbounded"]:
             print(prob.status, 'False in DRKF method 2!!!!!!!!!!!!!')
         
+        gamma_v_opt = gamma_v.value
         Alpha_opt = Alpha.value
+        temp = np.linalg.inv(gamma_v_opt * np.eye(self.ny) - Alpha_opt.T @ Alpha_opt)
+        M_opt = (gamma_v_opt**2)*temp @ M_hat @ temp
         
-        return Alpha_opt
+        return Alpha_opt, M_opt
     
     #DR MMSE estimation !
     def DR_Estimation(self, x, Alpha, v, y, mu_w = None, u = None):
@@ -327,13 +330,13 @@ class MMSE_WDRC_2:
             #Prediction update
             X_cov_ = self.A @ X_cov @ self.A.T + Cov_w # using worst case
 
-        #X_cov_ = X_cov# need to be erased!!
-        Alpha= self.solve_DR_sdp(M_hat, X_cov_)
+        X_cov_ = X_cov# need to be erased!!
+        Alpha, M_opt= self.solve_DR_sdp(M_hat, X_cov_)
         #X_cov_ = X_cov_ -  1e-6*np.eye(self.nx)# need to be erased!!
         #Alpha= self.solve_DR_sdp(M_hat, X_cov) #need to be erased
-        return X_cov_, Alpha
+        return X_cov_, Alpha, M_opt
     
-    def DR_Estimation_cov_initial(self, M_hat, X_cov):
+    def DR_Estimation_cov_initial(self, M_hat, X_cov): # handle both x and v ! 
         
         #X_cov_ = X_cov # need to be erased! just for test
         Alpha, gamma_x = self.solve_DR_sdp_initial(M_hat, X_cov)
@@ -342,7 +345,7 @@ class MMSE_WDRC_2:
         temp = np.linalg.inv(gamma_x*np.eye(self.nx)- K.T @ K)
         X_cov = (gamma_x**2) * temp @ X_cov @ temp # worst Cov
         return X_cov , Alpha
-    def solve_DR_sdp_initial(self, M_hat, X_cov):
+    def solve_DR_sdp_initial(self, M_hat, X_cov): # handle both x and v ! 
         #construct problem
         #Variables
         Alpha = cp.Variable((self.nx, self.ny))
@@ -446,11 +449,12 @@ class MMSE_WDRC_2:
 
         self.x_cov = np.zeros((self.T+1, self.nx, self.nx))
         self.Alpha = np.zeros((self.T+1, self.nx, self.ny))
+        self.M_opt = np.zeros((self.T+1, self.ny, self.ny))
         sigma_wc = np.zeros((self.T, self.nx, self.nx))
 
         #self.x_cov[0], self.Alpha[0]  = self.DR_Estimation_cov_initial(self.M_hat[0], self.x0_cov) # modified!
         #_, self.Alpha[1]  = self.DR_Estimation_cov_initial(self.M_hat[0], self.x_cov[0]) #self.x_cov[] contains worst case covariance
-        self.x_cov[0], self.Alpha[0]  = self.DR_Estimation_cov_initial(self.M_hat[0], self.x0_cov)
+        self.x_cov[0], self.Alpha[0] = self.DR_Estimation_cov_initial(self.M_hat[0], self.x0_cov)
         for t in range(self.T):
             print("MMSE WDRC Offline step : ",t,"/",self.T)
             sdp_prob = self.gen_sdp(self.lambda_, self.M_hat[t])
@@ -465,9 +469,16 @@ class MMSE_WDRC_2:
             # #self.x_cov[t+1], self.Alpha[t+1] = self.DR_Estimation_cov(self.M_hat[t+1], X_wc, sigma_wc[t]) #choice MM-7
             # self.x_cov[t+1], self.Alpha[t+1] = self.DR_Estimation_cov(self.M_hat[t], X_wc, sigma_wc[t]) #choice MM-8
             
+            self.x_cov[t+1], self.Alpha[t+1], self.M_opt[t] = self.DR_Estimation_cov(self.M_hat[t], X, sigma_wc[t]) #choice MM-9 # sigma_wc[t] not used!
+            for i in range(3): 
+                sdp_prob = self.gen_sdp(self.lambda_, self.M_opt[t])
+                sigma_wc[t], X , status = self.solve_sdp(sdp_prob, self.x_cov[t], self.P[t+1], self.S[t+1], self.Sigma_hat[t])
+                self.x_cov[t+1], self.Alpha[t+1], self.M_opt[t] = self.DR_Estimation_cov(self.M_opt[t], X, sigma_wc[t]) # update and it converges!
+                print(np.max(np.linalg.eigvals(self.M_opt[t])))
+            
             #self.x_cov[t+1], self.Alpha[t+1] = self.DR_Estimation_cov(self.M_hat[t], self.x_cov[t], sigma_wc[t]) #choice MM-2 # Mosek error sometimes happens
             #self.x_cov[t+1] = X # need to be erased!
-            self.x_cov[t+1], self.Alpha[t+1] = self.DR_Estimation_cov(self.M_hat[t], X, sigma_wc[t]) #choice MM-3 # Best option for MMSE but not good for theory
+            #self.x_cov[t+1], self.Alpha[t+1], self.M_opt[t] = self.DR_Estimation_cov(self.M_hat[t], X, sigma_wc[t]) #choice MM-3 # Best option for MMSE but not good for theory
             #self.x_cov[t+1], self.Alpha[t+1] = self.DR_Estimation_cov(self.M_hat[t], X, self.Sigma_hat[t+1]) #choice MM-4
             #self.x_cov[t+1], self.Alpha[t+1] = self.DR_Estimation_cov(self.M_hat[t+1], X, self.Sigma_hat[t+1]) #choice MM-5
             #self.x_cov[t+2], self.Alpha[t+2] = self.DR_Estimation_cov(self.M_hat[t], X, self.Sigma_hat[t+1]) #choice MM-6

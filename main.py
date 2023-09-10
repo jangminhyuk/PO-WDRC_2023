@@ -326,10 +326,9 @@ def main(dist, sim_type, num_sim, num_samples, num_noise_samples, T, method, plo
                 lqg = LQG(T, dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat)
 
             mmse_wdrc.backward()
-            drkf_wdrc.backward()
-            
-            wdrc.backward()       
-            lqg.backward()
+            #drkf_wdrc.backward()
+            #wdrc.backward()       
+            #lqg.backward()
             
         if h_inf:
             h_infty = inf_H_infty(T, dist, system_data, mu_w, Sigma_w, x0_mean, x0_cov, x0_max, x0_min, w_max, w_min, v_min, v_max, v_max, v_min, M_hat)
@@ -387,30 +386,7 @@ def main(dist, sim_type, num_sim, num_samples, num_noise_samples, T, method, plo
         
                 print('cost (H_infty):', output_h_infty['cost'][0], 'time (H_infty):', output_h_infty['comp_time'])
     
-        np.random.seed(seed) # fix Random seed!
-        #----------------------------
-        print("Running DRKF_WDRC Forward step ...")
-        for i in range(num_sim):
-#            print('i: ', i)
-            
-    
-            #Perform state estimation and apply the controller
-            if out_of_sample:
-                output_drkf_wdrc_sample  = []
-                for j in range(os_sample_size):
-                   output_drkf_wdrc_ = drkf_wdrc[i].forward()
-                   output_drkf_wdrc_sample.append(output_drkf_wdrc_)
-                output_drkf_wdrc[i] = output_drkf_wdrc_sample
-                obj[i] = drkf_wdrc[i].objective(drkf_wdrc[i].lambda_)
-            else:
-               if wc:
-                   output_drkf_wdrc = drkf_wdrc.forward()
-               else:
-                   output_drkf_wdrc = drkf_wdrc.forward()
-    
-               output_drkf_wdrc_list.append(output_drkf_wdrc)
-            
-               print('cost (DRKF_WDRC):', output_drkf_wdrc['cost'][0], 'time (DRKF_WDRC):', output_drkf_wdrc['comp_time'])
+        
         #----------------------------       
         np.random.seed(seed) # fix Random seed!
         print("Running MMSE_WDRC Forward step ...")
@@ -435,6 +411,45 @@ def main(dist, sim_type, num_sim, num_samples, num_noise_samples, T, method, plo
                output_mmse_wdrc_list.append(output_mmse_wdrc)
             
                print('cost (MMSE_WDRC):', output_mmse_wdrc['cost'][0], 'time (MMSE_WDRC):', output_mmse_wdrc['comp_time'])
+               
+        print("dist : ", dist, "/ num_samples : ", num_samples, "/ num_noise_samples : ", num_noise, "/seed : ", seed)
+        #mmse-wdrc print!@!@ just for test!
+        J_MMSE_WDRC_list = []
+        for out in output_mmse_wdrc_list:
+            J_MMSE_WDRC_list.append(out['cost'])
+        J_MMSE_WDRC_mean= np.mean(J_MMSE_WDRC_list, axis=0)
+        J_MMSE_WDRC_std = np.std(J_MMSE_WDRC_list, axis=0)
+        output_J_MMSE_WDRC_mean.append(J_MMSE_WDRC_mean[0])
+        output_J_MMSE_WDRC_std.append(J_MMSE_WDRC_std[0])
+        print(" Average cost (MMSE-WDRC) : ", J_MMSE_WDRC_mean[0])
+        print(" std (MMSE-WDRC) : ", J_MMSE_WDRC_std[0])
+        #------------------------------
+        
+        
+        np.random.seed(seed) # fix Random seed!
+        #----------------------------
+        print("Running DRKF_WDRC Forward step ...")
+        for i in range(num_sim):
+#            print('i: ', i)
+            
+    
+            #Perform state estimation and apply the controller
+            if out_of_sample:
+                output_drkf_wdrc_sample  = []
+                for j in range(os_sample_size):
+                   output_drkf_wdrc_ = drkf_wdrc[i].forward()
+                   output_drkf_wdrc_sample.append(output_drkf_wdrc_)
+                output_drkf_wdrc[i] = output_drkf_wdrc_sample
+                obj[i] = drkf_wdrc[i].objective(drkf_wdrc[i].lambda_)
+            else:
+               if wc:
+                   output_drkf_wdrc = drkf_wdrc.forward()
+               else:
+                   output_drkf_wdrc = drkf_wdrc.forward()
+    
+               output_drkf_wdrc_list.append(output_drkf_wdrc)
+            
+               print('cost (DRKF_WDRC):', output_drkf_wdrc['cost'][0], 'time (DRKF_WDRC):', output_drkf_wdrc['comp_time'])
         #----------------------------             
         np.random.seed(seed) # fix Random seed!
         print("Running WDRC Forward step ...")  
