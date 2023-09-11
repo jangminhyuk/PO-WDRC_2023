@@ -191,7 +191,7 @@ class DRKF_WDRC:
         params[0].value = P
         params[1].value = S
 #        params[2].value = np.linalg.cholesky(Sigma_hat)
-        params[2].value = np.real(scipy.linalg.sqrtm(Sigma_hat + 1e-4*np.eye(self.nx)))
+        params[2].value = np.real(scipy.linalg.sqrtm(Sigma_hat + 1e-3*np.eye(self.nx)))
         params[3].value = x_cov
         
         sdp_prob.solve(solver=cp.MOSEK)
@@ -308,8 +308,8 @@ class DRKF_WDRC:
         S_xx_opt = S_xx.value
         S_xy_opt = S_xy.value
         S_yy_opt = S_yy.value
-        
-        return S_xx_opt, S_xy_opt, S_yy_opt
+        S_opt = S.value
+        return S_opt, S_xx_opt, S_xy_opt, S_yy_opt
     
     #DR Kalman FILTER !!!!!!!!!!!!!!!!!!!!!!!!
     def DR_kalman_filter(self, M_hat, x, y, S_xx, S_xy, S_yy, mu_w=None, u = None):
@@ -335,19 +335,26 @@ class DRKF_WDRC:
             #Prediction update
             X_cov_ = self.A @ X_cov @ self.A.T + Cov_w
             Y_cov_ = self.C @ (self.A @ X_cov @ self.A.T + Cov_w) @ self.C.T + M_hat
+        
            
         
         Sigma_z = np.bmat([[X_cov_, X_cov_ @ self.C.T ],
                            [ self.C @ X_cov_ ,Y_cov_ ] 
                            ])
         
-        #Measurement update
-        Sigma_z = Sigma_z + 1e-4*np.eye(self.nx+self.ny)
+        Sigma_z = Sigma_z + 1e-3*np.eye(self.nx+self.ny)
         
-        S_xx, S_xy, S_yy = self.solve_DR_sdp(Sigma_z, self.theta) # used theta as a radius!!! (can be changed)
+        S, S_xx, S_xy, S_yy = self.solve_DR_sdp(Sigma_z, self.theta) # used theta as a radius!!! (can be changed on purpose)
         
         X_cov_new = S_xx - S_xy @ np.linalg.inv(S_yy) @ S_xy.T
-        return X_cov_new, S_xx, S_xy, S_yy
+        return X_cov_new, S, S_xx, S_xy, S_yy
+    
+    def DR_kalman_filter_cov_repeat(self, Sigma): # for repeating steps!!
+        #Sigma = Sigma + 1e-4*np.eye(self.nx+self.ny)
+        S, S_xx, S_xy, S_yy = self.solve_DR_sdp(Sigma, self.theta) # used theta as a radius!!! (can be changed on purpose)
+        
+        X_cov_new = S_xx - S_xy @ np.linalg.inv(S_yy) @ S_xy.T
+        return X_cov_new, S, S_xx, S_xy, S_yy
     
     def riccati(self, Phi, P, S, r, z, Sigma_hat, mu_hat, lambda_, t):
         #Riccati equation corresponding to the Theorem 1
@@ -390,12 +397,13 @@ class DRKF_WDRC:
             self.P[t], self.S[t], self.r[t], self.z[t], self.K[t], self.L[t], self.H[t], self.h[t], self.g[t] = self.riccati(Phi, self.P[t+1], self.S[t+1], self.r[t+1], self.z[t+1], self.Sigma_hat[t], self.mu_hat[t], self.lambda_, t)
 
         self.x_cov = np.zeros((self.T+1, self.nx, self.nx))
+        self.S_opt = np.zeros((self.T+1, self.nx + self.ny, self.nx + self.ny))
         self.S_xx = np.zeros((self.T+1, self.nx, self.nx))
         self.S_xy = np.zeros((self.T+1, self.nx, self.ny))
         self.S_yy = np.zeros((self.T+1, self.ny, self.ny))
         sigma_wc = np.zeros((self.T, self.nx, self.nx))
 
-        self.x_cov[0], self.S_xx[0], self.S_xy[0], self.S_yy[0] = self.DR_kalman_filter_cov(self.M_hat[0], self.x0_cov)
+        self.x_cov[0], self.S_opt[0], self.S_xx[0], self.S_xy[0], self.S_yy[0] = self.DR_kalman_filter_cov(self.M_hat[0], self.x0_cov)
         for t in range(self.T):
             print("DRKF WDRC Offline step : ",t,"/",self.T)
             sdp_prob = self.gen_sdp(self.lambda_, self.M_hat[t])
@@ -403,8 +411,13 @@ class DRKF_WDRC:
             if status in ["infeasible", "unbounded"]:
                 print(status, 'False!!!!!!!!!!!!!')
             #self.x_cov[t+1], self.S_xx[t+1], self.S_xy[t+1], self.S_yy[t+1] = self.DR_kalman_filter_cov(self.M_hat[t], self.x_cov[t], self.Sigma_hat[t]) #choice 1
-            #self.x_cov[t+1], self.S_xx[t+1], self.S_xy[t+1], self.S_yy[t+1] = self.DR_kalman_filter_cov(self.M_hat[t], self.x_cov[t], sigma_wc[t]) #choice 2
-            self.x_cov[t+1], self.S_xx[t+1], self.S_xy[t+1], self.S_yy[t+1] = self.DR_kalman_filter_cov(self.M_hat[t], X_wc, sigma_wc[t]) #choice 3 is the best option (checked by experiment)
+            self.x_cov[t+1], self.S_opt[t+1], self.S_xx[t+1], self.S_xy[t+1], self.S_yy[t+1] = self.DR_kalman_filter_cov(self.M_hat[t], self.x_cov[t], sigma_wc[t]) #choice 2
+            #self.x_cov[t+1], self.S_xx[t+1], self.S_xy[t+1], self.S_yy[t+1] = self.DR_kalman_filter_cov(self.M_hat[t], X_wc, sigma_wc[t]) #choice 3 is the best option (checked by experiment)
+            
+            for i in range(1):
+                self.x_cov[t+1], self.S_opt[t+1], self.S_xx[t+1], self.S_xy[t+1], self.S_yy[t+1] = self.DR_kalman_filter_cov_repeat(self.S_opt[t+1]) #choice 4 !! repeat using S[t+1]
+                
+            
 #            if np.min(self.C @ (self.A @ x_cov[t] @ self.A + sigma_wc[t]) @ self.C.T + self.M) < 0:
 #                print('False!!!!!!!!!!!!!')
 #                break

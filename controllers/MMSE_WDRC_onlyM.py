@@ -468,14 +468,19 @@ class MMSE_WDRC_2:
             # X_wc = X_ - X_ @ self.C.T @ temp #worst covariance X
             # #self.x_cov[t+1], self.Alpha[t+1] = self.DR_Estimation_cov(self.M_hat[t+1], X_wc, sigma_wc[t]) #choice MM-7
             # self.x_cov[t+1], self.Alpha[t+1] = self.DR_Estimation_cov(self.M_hat[t], X_wc, sigma_wc[t]) #choice MM-8
-            
-            self.x_cov[t+1], self.Alpha[t+1], self.M_opt[t] = self.DR_Estimation_cov(self.M_hat[t], X, sigma_wc[t]) #choice MM-9 # sigma_wc[t] not used!
-            for i in range(3): 
+            # print("true max e.v: ", np.max(np.linalg.eigvals(self.M)))
+            # print("Mhat max e.v: ", np.max(np.linalg.eigvals(self.M_hat[t])))
+            # print("true M norm: ", np.linalg.norm(self.M))
+            #print("Sigma hat norm: ", np.linalg.norm(self.Sigma_hat[t]))
+            self.x_cov[t+1], self.Alpha[t+1], self.M_opt[t] = self.DR_Estimation_cov(self.M_hat[t], X, sigma_wc[t]) #choice MM-9 #
+            #print(np.max(np.linalg.eigvals(self.M_opt[t])))
+            for i in range(20): # repeated 20 times!!
                 sdp_prob = self.gen_sdp(self.lambda_, self.M_opt[t])
-                sigma_wc[t], X , status = self.solve_sdp(sdp_prob, self.x_cov[t], self.P[t+1], self.S[t+1], self.Sigma_hat[t])
-                self.x_cov[t+1], self.Alpha[t+1], self.M_opt[t] = self.DR_Estimation_cov(self.M_opt[t], X, sigma_wc[t]) # update and it converges!
-                print(np.max(np.linalg.eigvals(self.M_opt[t])))
-            
+                sigma_wc[t], X , status = self.solve_sdp(sdp_prob, self.x_cov[t], self.P[t+1], self.S[t+1], self.Sigma_hat[t]) # changed!!
+                self.x_cov[t+1], self.Alpha[t+1], self.M_opt[t] = self.DR_Estimation_cov(self.M_opt[t], X, sigma_wc[t])
+                #print("M_opt max e.v : ", np.max(np.linalg.eigvals(self.M_opt[t])))
+                print("x_cov[t+1] norm : ", np.linalg.norm(self.x_cov[t+1]))
+
             #self.x_cov[t+1], self.Alpha[t+1] = self.DR_Estimation_cov(self.M_hat[t], self.x_cov[t], sigma_wc[t]) #choice MM-2 # Mosek error sometimes happens
             #self.x_cov[t+1] = X # need to be erased!
             #self.x_cov[t+1], self.Alpha[t+1], self.M_opt[t] = self.DR_Estimation_cov(self.M_hat[t], X, sigma_wc[t]) #choice MM-3 # Best option for MMSE but not good for theory

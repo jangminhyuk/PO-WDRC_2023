@@ -114,10 +114,11 @@ def main(dist, sim_type, num_sim, num_samples, num_noise_samples, T, method, plo
 #    enumerate([0.5, 1])            
 #    enumerate([0.00001, 0.0001, 0.0005, 0.0015, 0.001, 0.00015, 0.002, 0.0025, 0.005, 0.01, 0.015, 0.05, 0.1, 1]):
                     #:
+        np.random.seed(seed) # fix Random seed!
+        print("--------------------------------------------")
         print("number of noise sample : ", num_noise)
         print("number of disturbance sample : ", num_samples)
         theta = 0.5
-        np.random.seed(seed) # fix Random seed!
         #Path for saving the results
         if infinite:
             if sim_type == "multiple":
@@ -325,8 +326,8 @@ def main(dist, sim_type, num_sim, num_samples, num_noise_samples, T, method, plo
                 wdrc = WDRC(theta, T, dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat)
                 lqg = LQG(T, dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat)
 
-            mmse_wdrc.backward()
-            #drkf_wdrc.backward()
+            #mmse_wdrc.backward()
+            drkf_wdrc.backward()
             #wdrc.backward()       
             #lqg.backward()
             
@@ -388,41 +389,41 @@ def main(dist, sim_type, num_sim, num_samples, num_noise_samples, T, method, plo
     
         
         #----------------------------       
-        np.random.seed(seed) # fix Random seed!
-        print("Running MMSE_WDRC Forward step ...")
-        for i in range(num_sim):
-#            print('i: ', i)
+#         np.random.seed(seed) # fix Random seed!
+#         print("Running MMSE_WDRC Forward step ...")
+#         for i in range(num_sim):
+# #            print('i: ', i)
             
     
-            #Perform state estimation and apply the controller
-            if out_of_sample:
-                output_drkf_wdrc_sample  = []
-                for j in range(os_sample_size):
-                   output_drkf_wdrc_ = drkf_wdrc[i].forward()
-                   output_drkf_wdrc_sample.append(output_drkf_wdrc_)
-                output_drkf_wdrc[i] = output_drkf_wdrc_sample
-                obj[i] = drkf_wdrc[i].objective(drkf_wdrc[i].lambda_)
-            else:
-               if wc:
-                   output_mmse_wdrc = mmse_wdrc.forward()
-               else:
-                   output_mmse_wdrc = mmse_wdrc.forward()
+#             #Perform state estimation and apply the controller
+#             if out_of_sample:
+#                 output_drkf_wdrc_sample  = []
+#                 for j in range(os_sample_size):
+#                    output_drkf_wdrc_ = drkf_wdrc[i].forward()
+#                    output_drkf_wdrc_sample.append(output_drkf_wdrc_)
+#                 output_drkf_wdrc[i] = output_drkf_wdrc_sample
+#                 obj[i] = drkf_wdrc[i].objective(drkf_wdrc[i].lambda_)
+#             else:
+#                if wc:
+#                    output_mmse_wdrc = mmse_wdrc.forward()
+#                else:
+#                    output_mmse_wdrc = mmse_wdrc.forward()
     
-               output_mmse_wdrc_list.append(output_mmse_wdrc)
+#                output_mmse_wdrc_list.append(output_mmse_wdrc)
             
-               print('cost (MMSE_WDRC):', output_mmse_wdrc['cost'][0], 'time (MMSE_WDRC):', output_mmse_wdrc['comp_time'])
+#                print('cost (MMSE_WDRC):', output_mmse_wdrc['cost'][0], 'time (MMSE_WDRC):', output_mmse_wdrc['comp_time'])
                
-        print("dist : ", dist, "/ num_samples : ", num_samples, "/ num_noise_samples : ", num_noise, "/seed : ", seed)
-        #mmse-wdrc print!@!@ just for test!
-        J_MMSE_WDRC_list = []
-        for out in output_mmse_wdrc_list:
-            J_MMSE_WDRC_list.append(out['cost'])
-        J_MMSE_WDRC_mean= np.mean(J_MMSE_WDRC_list, axis=0)
-        J_MMSE_WDRC_std = np.std(J_MMSE_WDRC_list, axis=0)
-        output_J_MMSE_WDRC_mean.append(J_MMSE_WDRC_mean[0])
-        output_J_MMSE_WDRC_std.append(J_MMSE_WDRC_std[0])
-        print(" Average cost (MMSE-WDRC) : ", J_MMSE_WDRC_mean[0])
-        print(" std (MMSE-WDRC) : ", J_MMSE_WDRC_std[0])
+        # print("dist : ", dist, "/ num_samples : ", num_samples, "/ num_noise_samples : ", num_noise, "/seed : ", seed)
+        # #mmse-wdrc print!@!@ just for test!
+        # J_MMSE_WDRC_list = []
+        # for out in output_mmse_wdrc_list:
+        #     J_MMSE_WDRC_list.append(out['cost'])
+        # J_MMSE_WDRC_mean= np.mean(J_MMSE_WDRC_list, axis=0)
+        # J_MMSE_WDRC_std = np.std(J_MMSE_WDRC_list, axis=0)
+        # output_J_MMSE_WDRC_mean.append(J_MMSE_WDRC_mean[0])
+        # output_J_MMSE_WDRC_std.append(J_MMSE_WDRC_std[0])
+        # print(" Average cost (MMSE-WDRC) : ", J_MMSE_WDRC_mean[0])
+        # print(" std (MMSE-WDRC) : ", J_MMSE_WDRC_std[0])
         #------------------------------
         
         
@@ -451,50 +452,50 @@ def main(dist, sim_type, num_sim, num_samples, num_noise_samples, T, method, plo
             
                print('cost (DRKF_WDRC):', output_drkf_wdrc['cost'][0], 'time (DRKF_WDRC):', output_drkf_wdrc['comp_time'])
         #----------------------------             
-        np.random.seed(seed) # fix Random seed!
-        print("Running WDRC Forward step ...")  
-        for i in range(num_sim):
-#            print('i: ', i)
+#         np.random.seed(seed) # fix Random seed!
+#         print("Running WDRC Forward step ...")  
+#         for i in range(num_sim):
+# #            print('i: ', i)
     
     
-            #Perform state estimation and apply the controller
-            if out_of_sample:
-                output_wdrc_sample  = []
-                for j in range(os_sample_size):
-                   output_wdrc_ = wdrc[i].forward()
-                   output_wdrc_sample.append(output_wdrc_)
-                output_wdrc[i] = output_wdrc_sample
-                obj[i] = wdrc[i].objective(wdrc[i].lambda_)
-            else:
-               if wc:
-                   output_wdrc = wdrc.forward()
-               else:
-                   output_wdrc = wdrc.forward()
+#             #Perform state estimation and apply the controller
+#             if out_of_sample:
+#                 output_wdrc_sample  = []
+#                 for j in range(os_sample_size):
+#                    output_wdrc_ = wdrc[i].forward()
+#                    output_wdrc_sample.append(output_wdrc_)
+#                 output_wdrc[i] = output_wdrc_sample
+#                 obj[i] = wdrc[i].objective(wdrc[i].lambda_)
+#             else:
+#                if wc:
+#                    output_wdrc = wdrc.forward()
+#                else:
+#                    output_wdrc = wdrc.forward()
     
-               output_wdrc_list.append(output_wdrc)
+#                output_wdrc_list.append(output_wdrc)
     
-               print('cost (WDRC):', output_wdrc['cost'][0], 'time (WDRC):', output_wdrc['comp_time'])
+#                print('cost (WDRC):', output_wdrc['cost'][0], 'time (WDRC):', output_wdrc['comp_time'])
         #----------------------------
-        np.random.seed(seed) # fix Random seed!
-        print("Running LQG Forward step ...")
-        for i in range(num_sim):
-#            print('i: ', i)
+#         np.random.seed(seed) # fix Random seed!
+#         print("Running LQG Forward step ...")
+#         for i in range(num_sim):
+# #            print('i: ', i)
     
-            if out_of_sample:
-                output_lqg_sample  = []
-    #            for j in range(os_sample_size):
-    #               output_lqg_ = lqg[i].forward()
-    #               output_lqg_sample.append(output_lqg_)
-    #            output_lqg[i] = output_lqg_sample
-            else:
-                if wc:
-                    output_lqg = lqg.forward(mu_wc = output_wdrc['mu_wc'], Sigma_wc = output_wdrc['Sigma_wc'])
-                else:
-                    output_lqg = lqg.forward()
+#             if out_of_sample:
+#                 output_lqg_sample  = []
+#     #            for j in range(os_sample_size):
+#     #               output_lqg_ = lqg[i].forward()
+#     #               output_lqg_sample.append(output_lqg_)
+#     #            output_lqg[i] = output_lqg_sample
+#             else:
+#                 if wc:
+#                     output_lqg = lqg.forward(mu_wc = output_wdrc['mu_wc'], Sigma_wc = output_wdrc['Sigma_wc'])
+#                 else:
+#                     output_lqg = lqg.forward()
         
-                output_lqg_list.append(output_lqg)
+#                 output_lqg_list.append(output_lqg)
     
-                print('cost (LQG):', output_lqg['cost'][0], 'time (LQG):', output_lqg['comp_time'])
+#                 print('cost (LQG):', output_lqg['cost'][0], 'time (LQG):', output_lqg['comp_time'])
     
     
         #TODO !!!! DRKF needed to be added    
@@ -533,23 +534,23 @@ def main(dist, sim_type, num_sim, num_samples, num_noise_samples, T, method, plo
         elif noise_plot_results:
             J_LQG_list, J_WDRC_list, J_DRKF_WDRC_list, J_MMSE_WDRC_list = [], [], [], []
             
-            #lqg
-            for out in output_lqg_list:
-                J_LQG_list.append(out['cost'])
+            # #lqg
+            # for out in output_lqg_list:
+            #     J_LQG_list.append(out['cost'])
                 
-            J_LQG_mean= np.mean(J_LQG_list, axis=0)
-            J_LQG_std = np.std(J_LQG_list, axis=0)
-            output_J_LQG_mean.append(J_LQG_mean[0])
-            output_J_LQG_std.append(J_LQG_std[0])
+            # J_LQG_mean= np.mean(J_LQG_list, axis=0)
+            # J_LQG_std = np.std(J_LQG_list, axis=0)
+            # output_J_LQG_mean.append(J_LQG_mean[0])
+            # output_J_LQG_std.append(J_LQG_std[0])
             
-            #wdrc
-            for out in output_wdrc_list:
-                J_WDRC_list.append(out['cost'])
+            # #wdrc
+            # for out in output_wdrc_list:
+            #     J_WDRC_list.append(out['cost'])
                 
-            J_WDRC_mean= np.mean(J_WDRC_list, axis=0)
-            J_WDRC_std = np.std(J_WDRC_list, axis=0)
-            output_J_WDRC_mean.append(J_WDRC_mean[0])
-            output_J_WDRC_std.append(J_WDRC_std[0])
+            # J_WDRC_mean= np.mean(J_WDRC_list, axis=0)
+            # J_WDRC_std = np.std(J_WDRC_list, axis=0)
+            # output_J_WDRC_mean.append(J_WDRC_mean[0])
+            # output_J_WDRC_std.append(J_WDRC_std[0])
 
             #drkf-wdrc
             for out in output_drkf_wdrc_list:
@@ -560,18 +561,23 @@ def main(dist, sim_type, num_sim, num_samples, num_noise_samples, T, method, plo
             output_J_DRKF_WDRC_mean.append(J_DRKF_WDRC_mean[0])
             output_J_DRKF_WDRC_std.append(J_DRKF_WDRC_std[0])
             
-            #mmse-wdrc
-            for out in output_mmse_wdrc_list:
-                J_MMSE_WDRC_list.append(out['cost'])
-                
-            J_MMSE_WDRC_mean= np.mean(J_MMSE_WDRC_list, axis=0)
-            J_MMSE_WDRC_std = np.std(J_MMSE_WDRC_list, axis=0)
-            output_J_MMSE_WDRC_mean.append(J_MMSE_WDRC_mean[0])
-            output_J_MMSE_WDRC_std.append(J_MMSE_WDRC_std[0])
-            
             print("num_noise_sample : ", num_noise, " / finished with dist : ", dist, "/ seed : ", seed)
-            print("Average cost (LQG) : ", J_LQG_mean[0], " Average cost (WDRC) : ", J_WDRC_mean[0], " Average cost (DRKF-WDRC) : ", J_DRKF_WDRC_mean[0], " Average cost (MMSE-WDRC) : ", J_MMSE_WDRC_mean[0])
-            print("std (LQG) : ", J_LQG_std[0], " std (WDRC) : ", J_WDRC_std[0], " std (DRKF-WDRC) : ", J_DRKF_WDRC_std[0], " std (MMSE-WDRC) : ", J_MMSE_WDRC_std[0])
+            print(" Average cost (MMSE-WDRC) : ", J_DRKF_WDRC_mean[0])
+            print(" std (MMSE-WDRC) : ", J_DRKF_WDRC_std[0])
+            
+            
+            # #mmse-wdrc
+            # for out in output_mmse_wdrc_list:
+            #     J_MMSE_WDRC_list.append(out['cost'])
+                
+            # J_MMSE_WDRC_mean= np.mean(J_MMSE_WDRC_list, axis=0)
+            # J_MMSE_WDRC_std = np.std(J_MMSE_WDRC_list, axis=0)
+            # output_J_MMSE_WDRC_mean.append(J_MMSE_WDRC_mean[0])
+            # output_J_MMSE_WDRC_std.append(J_MMSE_WDRC_std[0])
+            
+            # print("num_noise_sample : ", num_noise, " / finished with dist : ", dist, "/ seed : ", seed)
+            # print("Average cost (LQG) : ", J_LQG_mean[0], " Average cost (WDRC) : ", J_WDRC_mean[0], " Average cost (DRKF-WDRC) : ", J_DRKF_WDRC_mean[0], " Average cost (MMSE-WDRC) : ", J_MMSE_WDRC_mean[0])
+            # print("std (LQG) : ", J_LQG_std[0], " std (WDRC) : ", J_WDRC_std[0], " std (DRKF-WDRC) : ", J_DRKF_WDRC_std[0], " std (MMSE-WDRC) : ", J_MMSE_WDRC_std[0])
         else:
             #Save results
             save_data(path + 'drkf_wdrc.pkl', output_drkf_wdrc_list)
@@ -608,12 +614,13 @@ def main(dist, sim_type, num_sim, num_samples, num_noise_samples, T, method, plo
         if not os.path.exists(path):
             os.makedirs(path)
             
+        save_data(path + 'drkf_wdrc_mean.pkl', output_J_DRKF_WDRC_mean)
+        save_data(path + 'drkf_wdrc_std.pkl', output_J_DRKF_WDRC_std)   
+        print("DRKF SAVED ! CHECK FOLDER")
         save_data(path + 'lqg_mean.pkl', output_J_LQG_mean)
         save_data(path + 'lqg_std.pkl', output_J_LQG_std) 
         save_data(path + 'wdrc_mean.pkl', output_J_WDRC_mean)
         save_data(path + 'wdrc_std.pkl', output_J_WDRC_std) 
-        save_data(path + 'drkf_wdrc_mean.pkl', output_J_DRKF_WDRC_mean)
-        save_data(path + 'drkf_wdrc_std.pkl', output_J_DRKF_WDRC_std)   
         save_data(path + 'mmse_wdrc_mean.pkl', output_J_MMSE_WDRC_mean)
         save_data(path + 'mmse_wdrc_std.pkl', output_J_MMSE_WDRC_std)   
         #Summarize and plot the results

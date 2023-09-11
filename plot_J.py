@@ -51,7 +51,7 @@ def summarize_noise(num_noise_list, avg_cost_lqg, std_cost_lqg, avg_cost_wdrc, s
     # plt.plot(t, J_true_mean, '#103E5E', linestyle='dashed', label='WDRC (true)')
     # plt.fill_between(t, J_true_mean + 0.25*J_true_std, J_true_mean - 0.25*J_true_std, facecolor='#103E5E', alpha=0.3)
     
-    
+    plt.title('Effect of noise sample size : {} observation noise'.format(dist))
     #----------------------------------------------
     plt.plot(t, J_lqr_mean, 'tab:red', label='LQG (sample)')
     plt.fill_between(t, J_lqr_mean + 0.25*J_lqr_std, J_lqr_mean - 0.25*J_lqr_std, facecolor='tab:red', alpha=0.3)
