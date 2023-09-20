@@ -25,7 +25,7 @@ class MMSE_WDRC:
         self.Sigma_hat = Sigma_hat
         self.mu_w = mu_w
         self.Sigma_w = Sigma_w
-        if self.dist=="uniform":
+        if self.dist=="uniform" or self.dist=="quadratic":
             self.x0_max = x0_max
             self.x0_min = x0_min
             self.w_max = w_max
@@ -39,7 +39,9 @@ class MMSE_WDRC:
             self.lambda_ = 785
         elif self.dist=="uniform":
             self.lambda_ = 780.2396483109309
-            
+        elif self.dist=="quadratic":
+            self.lambda_ = 780
+                
         print("MMSE-WDRC")
 #        self.lambda_ = self.optimize_penalty() #optimize penalty parameter for theta
 #        self.lambda_ = 3.5
@@ -155,6 +157,26 @@ class MMSE_WDRC:
         else:
             x = mu + np.linalg.cholesky(Sigma) @ w.T
         return x
+    def quad_inverse(self, x, b, a):
+        row = x.shape[0]
+        col = x.shape[1]
+        beta = (a[0]+b[0])/2.0
+        alpha = 12.0/((b[0]-a[0])**3)
+        for i in range(row):
+            for j in range(col):
+                tmp = 3*x[i][j]/alpha - (beta - a[0])**3
+                if 0<=tmp:
+                    x[i][j] = beta + ( tmp)**(1./3.)
+                else:
+                    x[i][j] = beta -(-tmp)**(1./3.)
+        return x
+
+    # quadratic U-shape distrubituon in [wmin , wmax]
+    def quadratic(self, wmax, wmin, N=1):
+        n = wmin.shape[0]
+        x = np.random.rand(N, n)
+        x = self.quad_inverse(x, wmax, wmin)
+        return x.T
     
     def gen_sdp(self, lambda_, M_hat):
             Sigma = cp.Variable((self.nx,self.nx), symmetric=True)
@@ -412,8 +434,10 @@ class MMSE_WDRC:
         elif self.dist=="uniform":
             x[0] = self.uniform(self.x0_max, self.x0_min)
             true_v = self.uniform(self.v_max, self.v_min) #observation noise
-#            true_v = self.normal(np.zeros((self.ny,1)), self.M) #observation noise
-            
+        elif self.dist=="quadratic":
+            x[0] = self.quadratic(self.x0_max, self.x0_min)
+            true_v = self.quadratic(self.v_max, self.v_min) #observation noise
+                
         y[0] = self.get_obs(x[0], true_v) #initial observation
         v = np.zeros((self.ny,1)) # can be changed!!
         x_mean[0] = self.DR_Estimation(self.x0_mean, self.Alpha[0], v, y[0]) #initial state estimation
@@ -429,7 +453,9 @@ class MMSE_WDRC:
             elif self.dist=="uniform":
                 true_w = self.uniform(self.w_max, self.w_min)
                 true_v = self.uniform(self.v_max, self.v_min) #observation noise
-
+            elif self.dist=="quadratic":
+                true_w = self.quadratic(self.w_max, self.w_min)
+                true_v = self.quadratic(self.v_max, self.v_min) #observation noise
 
             #Apply the control input to the system
             u[t] = self.K[t] @ x_mean[t] + self.L[t]

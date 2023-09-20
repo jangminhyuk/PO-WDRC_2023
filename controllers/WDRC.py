@@ -23,7 +23,7 @@ class WDRC:
         self.Sigma_hat = Sigma_hat
         self.mu_w = mu_w
         self.Sigma_w = Sigma_w
-        if self.dist=="uniform":
+        if self.dist=="uniform" or self.dist=="quadratic":
             self.x0_max = x0_max
             self.x0_min = x0_min
             self.w_max = w_max
@@ -38,7 +38,8 @@ class WDRC:
             self.lambda_ = 785
         elif self.dist=="uniform":
             self.lambda_ = 780.2396483109309
-            
+        elif self.dist=="quadratic":
+            self.lambda_ = 780
         #Initial state
         if self.dist=="normal":
             self.x0_init = self.normal(self.x0_mean, self.x0_cov)
@@ -49,7 +50,7 @@ class WDRC:
         
         
         print("WDRC ", self.dist, )
-#        self.lambda_ = self.optimize_penalty() #optimize penalty parameter for theta
+        #self.lambda_ = self.optimize_penalty() #optimize penalty parameter for theta
 #        self.lambda_ = 3.5
         #self.binarysearch_infimum_penalty_finite()
         self.P = np.zeros((self.T+1, self.nx, self.nx))
@@ -72,9 +73,10 @@ class WDRC:
         #optimal_penalty = minimize(self.objective, x0=np.array([2*self.infimum_penalty]), method='nelder-mead', options={'xatol': 1e-6, 'disp': False}).x[0]
         #self.infimum_penalty = 1.5
         #np.max(np.linalg.eigvals(self.Qf)) + 1e-6
-        output = minimize(self.objective, x0=np.array([2*self.infimum_penalty]), method='L-BFGS-B', options={'maxfun': 100000, 'disp': False, 'maxiter': 100000})
-        print(output.message)
-        optimal_penalty = output.x[0]
+        #output = minimize(self.objective, x0=np.array([2*self.infimum_penalty]), method='L-BFGS-B', options={'maxfun': 100000, 'disp': False, 'maxiter': 100000})
+        #print(output.message)
+        #optimal_penalty = output.x[0]
+        optimal_penalty = 2* self.infimum_penalty
         print("DRKF Optimal penalty (lambda_star):", optimal_penalty)
         return optimal_penalty
 
@@ -106,8 +108,8 @@ class WDRC:
         x_cov = np.zeros((self.T, self.nx, self.nx))
         sigma_wc = np.zeros((self.T, self.nx, self.nx))
         y = self.get_obs(self.x0_init, self.true_v_init)
-        x0_mean, x_cov[0] = self.kalman_filter(self.M_hat[0], self.x0_mean, self.x0_cov, y) #initial state estimation
-        
+        x0_mean = self.kalman_filter(self.M_hat[0], self.x0_mean, self.x0_cov, y) #initial state estimation
+        x_cov[0] = self.kalman_filter_cov(self.M_hat[0], self.x0_cov)
         for t in range(0, self.T-1):
             x_cov[t+1] = self.kalman_filter_cov(self.M_hat[t], x_cov[t], sigma_wc[t])
             sdp_prob = self.gen_sdp(penalty, self.M_hat[t])
@@ -161,6 +163,26 @@ class WDRC:
         else:
             x = mu + np.linalg.cholesky(Sigma) @ w.T
         return x
+    def quad_inverse(self, x, b, a):
+        row = x.shape[0]
+        col = x.shape[1]
+        beta = (a[0]+b[0])/2.0
+        alpha = 12.0/((b[0]-a[0])**3)
+        for i in range(row):
+            for j in range(col):
+                tmp = 3*x[i][j]/alpha - (beta - a[0])**3
+                if 0<=tmp:
+                    x[i][j] = beta + ( tmp)**(1./3.)
+                else:
+                    x[i][j] = beta -(-tmp)**(1./3.)
+        return x
+
+    # quadratic U-shape distrubituon in [wmin , wmax]
+    def quadratic(self, wmax, wmin, N=1):
+        n = wmin.shape[0]
+        x = np.random.rand(N, n)
+        x = self.quad_inverse(x, wmax, wmin)
+        return x.T
     
     def gen_sdp(self, lambda_, M_hat):
             Sigma = cp.Variable((self.nx,self.nx), symmetric=True)
@@ -317,7 +339,9 @@ class WDRC:
         elif self.dist=="uniform":
             x[0] = self.uniform(self.x0_max, self.x0_min)
             true_v = self.uniform(self.v_max, self.v_min) #observation noise
-#            true_v = self.normal(np.zeros((self.ny,1)), self.M) #observation noise
+        elif self.dist=="quadratic":
+            x[0] = self.quadratic(self.x0_max, self.x0_min)
+            true_v = self.quadratic(self.v_max, self.v_min) #observation noise
             
         y[0] = self.get_obs(x[0], true_v) #initial observation
         x_mean[0] = self.kalman_filter(self.M_hat[0], self.x0_mean, self.x_cov[0], y[0]) #initial state estimation
@@ -333,7 +357,9 @@ class WDRC:
             elif self.dist=="uniform":
                 true_w = self.uniform(self.w_max, self.w_min)
                 true_v = self.uniform(self.v_max, self.v_min) #observation noise
-
+            elif self.dist=="quadratic":
+                true_w = self.quadratic(self.w_max, self.w_min)
+                true_v = self.quadratic(self.v_max, self.v_min) #observation noise
 
             #Apply the control input to the system
             u[t] = self.K[t] @ x_mean[t] + self.L[t]
@@ -348,6 +374,9 @@ class WDRC:
         for t in range(self.T-1, -1, -1):
             J[t] = J[t+1] + x[t].T @ self.Q @ x[t] + u[t].T @ self.R @ u[t]
 
+        
+        #print("DRKF Optimal penalty (lambda_star):", self.lambda_)
+        
         end = time.time()
         time_ = end-start
         return {'comp_time': time_,

@@ -62,8 +62,8 @@ def summarize_noise(num_noise_list, avg_cost_lqg, std_cost_lqg, avg_cost_wdrc, s
     plt.plot(t, J_drkf_wdrc_mean, 'tab:purple', label='DRKF-WDRC (sample)')
     plt.fill_between(t, J_drkf_wdrc_mean + J_drkf_wdrc_std, J_drkf_wdrc_mean - J_drkf_wdrc_std, facecolor='tab:purple', alpha=0.3)
     
-    plt.plot(t, J_mmse_wdrc_mean, 'tab:green', label='MMSE-WDRC (sample)')
-    plt.fill_between(t, J_mmse_wdrc_mean + J_mmse_wdrc_std, J_mmse_wdrc_mean - J_mmse_wdrc_std, facecolor='tab:green', alpha=0.3)
+    #plt.plot(t, J_mmse_wdrc_mean, 'tab:green', label='MMSE-WDRC (sample)')
+    #plt.fill_between(t, J_mmse_wdrc_mean + J_mmse_wdrc_std, J_mmse_wdrc_mean - J_mmse_wdrc_std, facecolor='tab:green', alpha=0.3)
     
     
     plt.xlabel(r'Sample Size', fontsize=16)
@@ -159,6 +159,7 @@ if __name__ == "__main__":
     
     avg_cost_wdrc_file = open(path + '/wdrc_mean.pkl', 'rb' )
     avg_cost_wdrc = pickle.load(avg_cost_wdrc_file)
+    #print(avg_cost_wdrc)
     avg_cost_wdrc_file.close()
     std_cost_wdrc_file = open(path + '/wdrc_std.pkl', 'rb' )
     std_cost_wdrc = pickle.load(std_cost_wdrc_file)
@@ -166,6 +167,7 @@ if __name__ == "__main__":
     
     avg_cost_drkf_wdrc_file = open(path + '/drkf_wdrc_mean.pkl', 'rb' )
     avg_cost_drkf_wdrc = pickle.load(avg_cost_drkf_wdrc_file)
+    #print(avg_cost_drkf_wdrc)
     avg_cost_drkf_wdrc_file.close()
     std_cost_drkf_wdrc_file = open(path + '/drkf_wdrc_std.pkl', 'rb' )
     std_cost_drkf_wdrc = pickle.load(std_cost_drkf_wdrc_file)
@@ -173,8 +175,10 @@ if __name__ == "__main__":
     
     avg_cost_mmse_wdrc_file = open(path + '/mmse_wdrc_mean.pkl', 'rb' )
     avg_cost_mmse_wdrc = pickle.load(avg_cost_mmse_wdrc_file)
+    #print(avg_cost_mmse_wdrc)
     avg_cost_mmse_wdrc_file.close()
     std_cost_mmse_wdrc_file = open(path + '/mmse_wdrc_std.pkl', 'rb' )
     std_cost_mmse_wdrc = pickle.load(std_cost_mmse_wdrc_file)
+    #print(std_cost_mmse_wdrc)
     std_cost_mmse_wdrc_file.close()
     summarize_noise(num_noise_list, avg_cost_lqg, std_cost_lqg, avg_cost_wdrc, std_cost_wdrc, avg_cost_drkf_wdrc, std_cost_drkf_wdrc, avg_cost_mmse_wdrc, std_cost_mmse_wdrc, args.dist, path)
