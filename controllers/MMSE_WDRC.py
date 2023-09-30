@@ -11,8 +11,9 @@ import scipy
 # The Gelbrich MMSE Estimation Problem
 
 class MMSE_WDRC:
-    def __init__(self, theta, T, dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat, num_noise_samples):
+    def __init__(self, theta, T, dist, noise_dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat, num_noise_samples, app_lambda):
         self.dist = dist
+        self.noise_dist = noise_dist
         self.T = T
         self.A, self.B, self.C, self.Q, self.Qf, self.R, self.M = system_data
         self.M_hat = M_hat
@@ -30,9 +31,11 @@ class MMSE_WDRC:
             self.x0_min = x0_min
             self.w_max = w_max
             self.w_min = w_min
+
+        if self.noise_dist =="uniform" or self.noise_dist =="quadratic":
             self.v_max = v_max
             self.v_min = v_min
-
+            
         self.theta = theta
         #Initial state
         if self.dist=="normal":
@@ -41,7 +44,10 @@ class MMSE_WDRC:
             self.lambda_ = 780.2396483109309
         elif self.dist=="quadratic":
             self.lambda_ = 780
-                
+        
+        if app_lambda>0:
+            self.lambda_ = app_lambda #use for lambda modification in application
+        
         print("MMSE-WDRC")
 #        self.lambda_ = self.optimize_penalty() #optimize penalty parameter for theta
 #        self.lambda_ = 3.5
@@ -160,11 +166,11 @@ class MMSE_WDRC:
     def quad_inverse(self, x, b, a):
         row = x.shape[0]
         col = x.shape[1]
-        beta = (a[0]+b[0])/2.0
-        alpha = 12.0/((b[0]-a[0])**3)
         for i in range(row):
             for j in range(col):
-                tmp = 3*x[i][j]/alpha - (beta - a[0])**3
+                beta = (a[j]+b[j])/2.0
+                alpha = 12.0/((b[j]-a[j])**3)
+                tmp = 3*x[i][j]/alpha - (beta - a[j])**3
                 if 0<=tmp:
                     x[i][j] = beta + ( tmp)**(1./3.)
                 else:
@@ -214,7 +220,7 @@ class MMSE_WDRC:
         params[0].value = P
         params[1].value = S
 #        params[2].value = np.linalg.cholesky(Sigma_hat)
-        params[2].value = np.real(scipy.linalg.sqrtm(Sigma_hat + 1e-4*np.eye(self.nx)))
+        params[2].value = np.real(scipy.linalg.sqrtm(Sigma_hat + 1e-3*np.eye(self.nx)))
         params[3].value = x_cov
         
         sdp_prob.solve(solver=cp.MOSEK)
@@ -317,8 +323,8 @@ class MMSE_WDRC:
         
         Alpha_opt = Alpha.value
         gamma_x_opt = gamma_x.value
-        
-        return Alpha_opt, gamma_x_opt
+        gamma_v_opt = gamma_v.value
+        return Alpha_opt, gamma_x_opt, gamma_v_opt
     
     #DR MMSE estimation !
     def DR_Estimation(self, x, Alpha, v, y, mu_w = None, u = None):
@@ -344,12 +350,27 @@ class MMSE_WDRC:
             X_cov_ = self.A @ X_cov @ self.A.T + Cov_w
         
         X_cov_ = X_cov # need to be erased! just for test
-        Alpha, gamma_x = self.solve_DR_sdp(M_hat, X_cov_)
+        Alpha, gamma_x, gamma_v = self.solve_DR_sdp(M_hat, X_cov_)
         
         K = np.eye(self.nx)-Alpha @ self.C
         temp = np.linalg.inv(gamma_x*np.eye(self.nx)- K.T @ K)
         X_cov = (gamma_x**2) * temp @ X_cov_ @ temp # worst Cov
-        return X_cov , Alpha
+        
+        temp2 = np.linalg.inv(gamma_v*np.eye(self.ny)-Alpha.T@ Alpha)
+        M_cov = (gamma_v**2) * temp2 @ M_hat @ temp2 # worst cov
+        return X_cov , Alpha, M_cov 
+    
+    def DR_Estimation_cov_repeat(self, M_cov, X_cov):
+        Alpha, gamma_x, gamma_v = self.solve_DR_sdp(M_cov, X_cov)
+        
+        K = np.eye(self.nx)-Alpha @ self.C
+        temp = np.linalg.inv(gamma_x*np.eye(self.nx)- K.T @ K)
+        X_cov = (gamma_x**2) * temp @ X_cov @ temp # worst Cov
+        
+        temp2 = np.linalg.inv(gamma_v*np.eye(self.ny)-Alpha.T @ Alpha)
+        M_cov = (gamma_v**2) * temp2 @ M_cov @ temp2 # worst cov
+        return X_cov , Alpha, M_cov 
+        
     
     def riccati(self, Phi, P, S, r, z, Sigma_hat, mu_hat, lambda_, t):
         #Riccati equation corresponding to the Theorem 1
@@ -393,9 +414,10 @@ class MMSE_WDRC:
 
         self.x_cov = np.zeros((self.T+1, self.nx, self.nx))
         self.Alpha = np.zeros((self.T+1, self.nx, self.ny))
+        self.M_cov = np.zeros((self.T +1, self.ny, self.ny))
         sigma_wc = np.zeros((self.T, self.nx, self.nx))
 
-        self.x_cov[0], self.Alpha[0]  = self.DR_Estimation_cov(self.M_hat[0], self.x0_cov)
+        self.x_cov[0], self.Alpha[0], self.M_cov[0]  = self.DR_Estimation_cov(self.M_hat[0], self.x0_cov)
         for t in range(self.T):
             print("MMSE WDRC Offline step : ",t,"/",self.T)
             sdp_prob = self.gen_sdp(self.lambda_, self.M_hat[t])
@@ -404,12 +426,18 @@ class MMSE_WDRC:
                 print(status, 'False!!!!!!!!!!!!!')
             
             # Below 3 lines need to be erased except choice m-4
-            X_ = self.A @ self.x_cov[t] @ self.A.T + sigma_wc[t]
-            temp = np.linalg.solve(self.C @ X_ @ self.C.T + self.M_hat[t], self.C @ X_)
-            X_wc = X_ - X_ @ self.C.T @ temp #worst covariance X
-            self.x_cov[t+1], self.Alpha[t+1] = self.DR_Estimation_cov(self.M_hat[t+1], X_wc, sigma_wc[t]) # choice m-4 #sigma_wc not accessed
+            # X_ = self.A @ self.x_cov[t] @ self.A.T + sigma_wc[t]
+            # temp = np.linalg.solve(self.C @ X_ @ self.C.T + self.M_hat[t], self.C @ X_)
+            # X_wc = X_ - X_ @ self.C.T @ temp #worst covariance X
+            # self.x_cov[t+1], self.Alpha[t+1], self.M_cov[t+1] = self.DR_Estimation_cov(self.M_hat[t+1], X_wc, sigma_wc[t]) # choice m-4 #sigma_wc not accessed
             
-            #self.x_cov[t+1], self.Alpha[t+1] = self.DR_Estimation_cov(self.M_hat[t], self.x_cov[t], sigma_wc[t]) # choice m-1 # mosek error sometimes happens
+            
+            
+            self.x_cov[t+1], self.Alpha[t+1], self.M_cov[t+1] = self.DR_Estimation_cov(self.M_hat[t], self.x_cov[t], sigma_wc[t]) # choice m-1 # mosek error sometimes happens
+            
+            #Robost repeat step
+            #self.x_cov[t+1], self.Alpha[t+1], self.M_cov[t+1] = self.DR_Estimation_cov(self.M_cov[t+1], self.x_cov[t+1])
+            
             #self.x_cov[t+1], self.Alpha[t+1] = self.DR_Estimation_cov(self.M_hat[t], self.x_cov[t], self.Sigma_hat[t]) # choice m-2 # works but performance worse than MM-2
             #self.x_cov[t+1], self.Alpha[t+1] = self.DR_Estimation_cov(self.M_hat[t], X, sigma_wc[t]) # choice m-3 # bad performance
 #            if np.min(self.C @ (self.A @ x_cov[t] @ self.A + sigma_wc[t]) @ self.C.T + self.M) < 0:
@@ -428,14 +456,19 @@ class MMSE_WDRC:
         J = np.zeros(self.T+1)
         mu_wc = np.zeros((self.T, self.nx, 1))
 
+        #---system----
         if self.dist=="normal":
             x[0] = self.normal(self.x0_mean, self.x0_cov)
-            true_v = self.normal(np.zeros((self.ny,1)), self.M) #observation noise
         elif self.dist=="uniform":
             x[0] = self.uniform(self.x0_max, self.x0_min)
-            true_v = self.uniform(self.v_max, self.v_min) #observation noise
         elif self.dist=="quadratic":
             x[0] = self.quadratic(self.x0_max, self.x0_min)
+        #---noise----
+        if self.noise_dist=="normal":
+            true_v = self.normal(np.zeros((self.ny,1)), self.M) #observation noise
+        elif self.noise_dist=="uniform":
+            true_v = self.uniform(self.v_max, self.v_min) #observation noise
+        elif self.noise_dist=="quadratic":
             true_v = self.quadratic(self.v_max, self.v_min) #observation noise
                 
         y[0] = self.get_obs(x[0], true_v) #initial observation
@@ -443,18 +476,21 @@ class MMSE_WDRC:
         x_mean[0] = self.DR_Estimation(self.x0_mean, self.Alpha[0], v, y[0]) #initial state estimation
 
         for t in range(self.T):
-            #disturbance sampling
             mu_wc[t] = self.H[t] @ x_mean[t] + self.h[t] #worst-case mean
 
+            #disturbance sampling
             if self.dist=="normal":
                 true_w = self.normal(self.mu_w, self.Sigma_w)
-                true_v = self.normal(np.zeros((self.ny,1)), self.M) #observation noise
-
             elif self.dist=="uniform":
                 true_w = self.uniform(self.w_max, self.w_min)
-                true_v = self.uniform(self.v_max, self.v_min) #observation noise
             elif self.dist=="quadratic":
                 true_w = self.quadratic(self.w_max, self.w_min)
+            #noise sampling
+            if self.noise_dist=="normal":
+                true_v = self.normal(np.zeros((self.ny,1)), self.M) #observation noise
+            elif self.noise_dist=="uniform":
+                true_v = self.uniform(self.v_max, self.v_min) #observation noise
+            elif self.noise_dist=="quadratic":
                 true_v = self.quadratic(self.v_max, self.v_min) #observation noise
 
             #Apply the control input to the system

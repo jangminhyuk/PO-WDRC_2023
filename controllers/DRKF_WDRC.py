@@ -10,8 +10,9 @@ import scipy
 #This method implements the SDP formualation of MMSE estimation problem from "Shafieezadeh Abadeh, Soroosh, et al. "Wasserstein distributionally robust Kalman filtering." Advances in Neural Information Processing Systems 31 (2018)."
 #For Kalman filtering, this method makes the ambiguity set of dimension [nx + ny] 
 class DRKF_WDRC:
-    def __init__(self, theta, T, dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat):
+    def __init__(self, theta, T, dist, noise_dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat, app_lambda):
         self.dist = dist
+        self.noise_dist = noise_dist
         self.T = T
         self.A, self.B, self.C, self.Q, self.Qf, self.R, self.M = system_data
         self.M_hat = M_hat
@@ -29,9 +30,11 @@ class DRKF_WDRC:
             self.x0_min = x0_min
             self.w_max = w_max
             self.w_min = w_min
+
+        if self.noise_dist =="uniform" or self.noise_dist =="quadratic":
             self.v_max = v_max
             self.v_min = v_min
-
+            
         self.theta = theta
         #Initial state
         if self.dist=="normal":
@@ -40,6 +43,9 @@ class DRKF_WDRC:
             self.lambda_ = 780.2396483109309
         elif self.dist=="quadratic":
             self.lambda_ = 780
+        
+        if app_lambda>0:
+            self.lambda_ = app_lambda #use for lambda modification in application
             
         print("DRKF-WDRC")
         #self.lambda_ = self.optimize_penalty() #optimize penalty parameter for theta
@@ -159,11 +165,11 @@ class DRKF_WDRC:
     def quad_inverse(self, x, b, a):
         row = x.shape[0]
         col = x.shape[1]
-        beta = (a[0]+b[0])/2.0
-        alpha = 12.0/((b[0]-a[0])**3)
         for i in range(row):
             for j in range(col):
-                tmp = 3*x[i][j]/alpha - (beta - a[0])**3
+                beta = (a[j]+b[j])/2.0
+                alpha = 12.0/((b[j]-a[j])**3)
+                tmp = 3*x[i][j]/alpha - (beta - a[j])**3
                 if 0<=tmp:
                     x[i][j] = beta + ( tmp)**(1./3.)
                 else:
@@ -364,7 +370,7 @@ class DRKF_WDRC:
                            [ self.C @ X_cov_ ,Y_cov_ ] 
                            ])
         
-        Sigma_z = Sigma_z + 1e-3*np.eye(self.nx+self.ny)
+        Sigma_z = Sigma_z + 1e-3*np.eye(self.nx+self.ny) # to prevent numerical error
         
         S, S_xx, S_xy, S_yy = self.solve_DR_sdp(Sigma_z, self.theta) # used theta as a radius!!! (can be changed on purpose)
         
@@ -388,7 +394,8 @@ class DRKF_WDRC:
         # Double check Assumption 1
         if lambda_ <= np.max(np.linalg.eigvals(P)):
         #or lambda_ <= np.max(np.linalg.eigvals(P+S)):
-            print("t={}: False!!!!!!!!!".format(t))
+            print("t={}: lambda check False!!!!!!!!!".format(t))
+            print("np.max(np.linalg.eigvals(P) : ", np.max(np.linalg.eigvals(P)))
             return None
         r_ = self.A.T @ temp @ (r + P @ mu_hat)
         z_ = z + - lambda_* np.trace(Sigma_hat) \
@@ -436,7 +443,7 @@ class DRKF_WDRC:
             self.x_cov[t+1], self.S_opt[t+1], self.S_xx[t+1], self.S_xy[t+1], self.S_yy[t+1] = self.DR_kalman_filter_cov(self.M_hat[t], self.x_cov[t], sigma_wc[t]) #choice 2
             #self.x_cov[t+1], self.S_xx[t+1], self.S_xy[t+1], self.S_yy[t+1] = self.DR_kalman_filter_cov(self.M_hat[t], X_wc, sigma_wc[t]) #choice 3 is the best option (checked by experiment)
             
-            for i in range(1):
+            for i in range(0): # 0 now!!!
                 self.x_cov[t+1], self.S_opt[t+1], self.S_xx[t+1], self.S_xy[t+1], self.S_yy[t+1] = self.DR_kalman_filter_cov_repeat(self.S_opt[t+1]) #choice 4 !! repeat using S[t+1]
                 
             
@@ -456,32 +463,41 @@ class DRKF_WDRC:
         J = np.zeros(self.T+1)
         mu_wc = np.zeros((self.T, self.nx, 1))
 
+        #---system----
         if self.dist=="normal":
             x[0] = self.normal(self.x0_mean, self.x0_cov)
-            true_v = self.normal(np.zeros((self.ny,1)), self.M) #observation noise
         elif self.dist=="uniform":
             x[0] = self.uniform(self.x0_max, self.x0_min)
-            true_v = self.uniform(self.v_max, self.v_min) #observation noise
         elif self.dist=="quadratic":
             x[0] = self.quadratic(self.x0_max, self.x0_min)
+        #---noise----
+        if self.noise_dist=="normal":
+            true_v = self.normal(np.zeros((self.ny,1)), self.M) #observation noise
+        elif self.noise_dist=="uniform":
+            true_v = self.uniform(self.v_max, self.v_min) #observation noise
+        elif self.noise_dist=="quadratic":
             true_v = self.quadratic(self.v_max, self.v_min) #observation noise
+            
                 
         y[0] = self.get_obs(x[0], true_v) #initial observation
         x_mean[0] = self.DR_kalman_filter(self.M_hat[0], self.x0_mean, y[0], self.S_xx[0], self.S_xy[0], self.S_yy[0]) #initial state estimation
 
         for t in range(self.T):
-            #disturbance sampling
             mu_wc[t] = self.H[t] @ x_mean[t] + self.h[t] #worst-case mean
-
+            
+            #disturbance sampling
             if self.dist=="normal":
                 true_w = self.normal(self.mu_w, self.Sigma_w)
-                true_v = self.normal(np.zeros((self.ny,1)), self.M) #observation noise
-
             elif self.dist=="uniform":
                 true_w = self.uniform(self.w_max, self.w_min)
-                true_v = self.uniform(self.v_max, self.v_min) #observation noise
             elif self.dist=="quadratic":
                 true_w = self.quadratic(self.w_max, self.w_min)
+            #noise sampling
+            if self.noise_dist=="normal":
+                true_v = self.normal(np.zeros((self.ny,1)), self.M) #observation noise
+            elif self.noise_dist=="uniform":
+                true_v = self.uniform(self.v_max, self.v_min) #observation noise
+            elif self.noise_dist=="quadratic":
                 true_v = self.quadratic(self.v_max, self.v_min) #observation noise
 
             #Apply the control input to the system

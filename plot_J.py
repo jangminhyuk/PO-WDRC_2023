@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import argparse
 import pickle
 
-def summarize_noise(num_noise_list, avg_cost_lqg, std_cost_lqg, avg_cost_wdrc, std_cost_wdrc, avg_cost_drkf_wdrc, std_cost_drkf_wdrc, avg_cost_mmse_wdrc, std_cost_mmse_wdrc, dist, path):
+def summarize_noise(num_noise_list, avg_cost_lqg, std_cost_lqg, avg_cost_wdrc, std_cost_wdrc, avg_cost_drkf_wdrc, std_cost_drkf_wdrc, avg_cost_mmse_wdrc, std_cost_mmse_wdrc, dist, noise_dist, path, application):
 #    t = np.array([10, 15, 20, 25, 30, 35, 40, 45, 50])
     
     t = np.array(num_noise_list)
@@ -51,29 +51,32 @@ def summarize_noise(num_noise_list, avg_cost_lqg, std_cost_lqg, avg_cost_wdrc, s
     # plt.plot(t, J_true_mean, '#103E5E', linestyle='dashed', label='WDRC (true)')
     # plt.fill_between(t, J_true_mean + 0.25*J_true_std, J_true_mean - 0.25*J_true_std, facecolor='#103E5E', alpha=0.3)
     
-    plt.title('Effect of noise sample size : {} observation noise'.format(dist))
+    plt.title('{} system disturbance, {} observation noise'.format(dist, noise_dist))
     #----------------------------------------------
     plt.plot(t, J_lqr_mean, 'tab:red', label='LQG (sample)')
     plt.fill_between(t, J_lqr_mean + 0.25*J_lqr_std, J_lqr_mean - 0.25*J_lqr_std, facecolor='tab:red', alpha=0.3)
     
     plt.plot(t, J_wdrc_mean, 'tab:blue', label='WDRC (sample)')
-    plt.fill_between(t, J_wdrc_mean + J_wdrc_std, J_wdrc_mean - J_wdrc_std, facecolor='tab:blue', alpha=0.3)
+    plt.fill_between(t, J_wdrc_mean + 0.25*J_wdrc_std, J_wdrc_mean - 0.25*J_wdrc_std, facecolor='tab:blue', alpha=0.3)
     
-    plt.plot(t, J_drkf_wdrc_mean, 'tab:purple', label='DRKF-WDRC (sample)')
-    plt.fill_between(t, J_drkf_wdrc_mean + J_drkf_wdrc_std, J_drkf_wdrc_mean - J_drkf_wdrc_std, facecolor='tab:purple', alpha=0.3)
+    plt.plot(t, J_drkf_wdrc_mean, 'tab:green', label='DRKF-WDRC (sample)')
+    plt.fill_between(t, J_drkf_wdrc_mean + 0.25*J_drkf_wdrc_std, J_drkf_wdrc_mean - 0.25*J_drkf_wdrc_std, facecolor='tab:green', alpha=0.3)
     
     #plt.plot(t, J_mmse_wdrc_mean, 'tab:green', label='MMSE-WDRC (sample)')
-    #plt.fill_between(t, J_mmse_wdrc_mean + J_mmse_wdrc_std, J_mmse_wdrc_mean - J_mmse_wdrc_std, facecolor='tab:green', alpha=0.3)
+    #plt.fill_between(t, J_mmse_wdrc_mean + 0.25*J_mmse_wdrc_std, J_mmse_wdrc_mean - 0.25*J_mmse_wdrc_std, facecolor='tab:purple', alpha=0.3)
     
     
-    plt.xlabel(r'Sample Size', fontsize=16)
+    plt.xlabel(r'Noise Sample Size', fontsize=16)
     plt.ylabel(r'Total Cost', fontsize=16)
     plt.legend(fontsize=16)
     plt.grid()
     plt.xlim([t[0], t[-1]])
     plt.xticks(fontsize=16)
     plt.yticks(fontsize=16)
-    plt.savefig(path +'/J_comp.pdf', dpi=300, bbox_inches="tight")
+    if application:
+        plt.savefig(path +'/UAV_J_comp_{}_{}.pdf'.format(dist, noise_dist), dpi=300, bbox_inches="tight")
+    else:
+        plt.savefig(path +'/J_comp_{}_{}.pdf'.format(dist, noise_dist), dpi=300, bbox_inches="tight")
     plt.clf()
     print("hi")
 
@@ -81,6 +84,8 @@ def summarize_noise(num_noise_list, avg_cost_lqg, std_cost_lqg, avg_cost_wdrc, s
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--dist', required=False, default="normal", type=str) #disurbance distribution (normal or uniform)
+    parser.add_argument('--noise_dist', required=False, default="normal", type=str) #noise distribution (normal or uniform)
+    parser.add_argument('--application', required=False, action="store_true")
     args = parser.parse_args()
     
     
@@ -98,49 +103,10 @@ if __name__ == "__main__":
     # avg_cost_lqg = []
     # std_cost_lqg = []
     # M_list = []
-    
-    # list_ = list(range(10,55,5))
-    # for M in list_:
-    #     try:
-    #         path = "./results/{}/infinite/M/M={}".format(args.dist, M)
-    #         wdrc_file = open(path + '/wdrc.pkl', 'rb')
-    #         wdrc_data = pickle.load(wdrc_file)
-    #         wdrc_file.close()
-    #         lqg_file = open(path + '/lqg.pkl', 'rb')
-    #         lqg_data = pickle.load(lqg_file)
-    #         lqg_file.close()
-    #         J_list = []
-    #         for out in wdrc_data:
-    #             J_list.append(out['cost'][0])
-    #         J_list_lqg = []
-    #         for out in lqg_data:
-    #             J_list_lqg.append(out['cost'][0])
-    #         avg_cost.append(np.mean(J_list, axis=0))
-    #         std_cost.append(np.std(J_list, axis=0))
-    #         avg_cost_lqg.append(np.mean(J_list_lqg, axis=0))
-    #         std_cost_lqg.append(np.std(J_list_lqg, axis=0))
-    #         M_list.append(M)
-    #     except:
-    #         pass
-        
-    #     path = "./results/{}/infinite/M/known".format(args.dist)
-    #     wdrc_file = open(path + '/wdrc.pkl', 'rb')
-    #     wdrc_data = pickle.load(wdrc_file)
-    #     wdrc_file.close()
-    #     lqg_file = open(path + '/lqg.pkl', 'rb')
-    #     lqg_data = pickle.load(lqg_file)
-    #     lqg_file.close()
-    #     J_list = []
-    #     for out in wdrc_data:
-    #         J_list.append(out['cost'][0])
-    #     J_list_lqg = []
-    #     for out in lqg_data:
-    #         J_list_lqg.append(out['cost'][0])
-    #     avg_cost_true = [np.mean(J_list, axis=0)]
-    #     std_cost_true = [np.std(J_list, axis=0)]
-    #     avg_cost_true_lqg = [np.mean(J_list_lqg, axis=0)]
-    #     std_cost_true_lqg = [np.std(J_list_lqg, axis=0)]
-    path = "./results/{}/finite/multiple/num_noise_plot".format(args.dist)
+    if args.application:
+        path = "./results/quad_{}_{}/finite/multiple/num_noise_plot".format(args.dist, args.noise_dist)
+    else:
+        path = "./results/{}_{}/finite/multiple/num_noise_plot".format(args.dist, args.noise_dist)
     num_noise_list = [5, 10, 15, 20, 25, 30]
     # avg_cost_lqg = [25576.348, 5473.018, 3682.205, 3588.105, 3514.703, 3399.839]
     # avg_cost_wdrc = [4703.05, 1749.400, 1757.495, 1835.393, 1895.03, 1870.068]
@@ -181,4 +147,4 @@ if __name__ == "__main__":
     std_cost_mmse_wdrc = pickle.load(std_cost_mmse_wdrc_file)
     #print(std_cost_mmse_wdrc)
     std_cost_mmse_wdrc_file.close()
-    summarize_noise(num_noise_list, avg_cost_lqg, std_cost_lqg, avg_cost_wdrc, std_cost_wdrc, avg_cost_drkf_wdrc, std_cost_drkf_wdrc, avg_cost_mmse_wdrc, std_cost_mmse_wdrc, args.dist, path)
+    summarize_noise(num_noise_list, avg_cost_lqg, std_cost_lqg, avg_cost_wdrc, std_cost_wdrc, avg_cost_drkf_wdrc, std_cost_drkf_wdrc, avg_cost_mmse_wdrc, std_cost_mmse_wdrc, args.dist, args.noise_dist, path, args.application)

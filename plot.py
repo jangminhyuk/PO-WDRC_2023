@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import argparse
 import pickle
 
-def summarize(out_lq_list, out_dr_list, out_drkf_list, out_mmse_list, dist, path, num, plot_results=True, wdrc = True, drkf=False, mmse=False):
+def summarize(out_lq_list, out_dr_list, out_drkf_list, out_mmse_list, dist, noise_dist, path, num, plot_results=True, wdrc = True, drkf=False, mmse=False, application="Nothing"):
     x_lqr_list, J_lqr_list, y_lqr_list, u_lqr_list = [], [], [], []
     x_list, J_list, y_list, u_list = [], [], [], [] # original wdrc with ordinary Kalman Filter
     x_drkf_list, J_drkf_list, y_drkf_list, u_drkf_list = [], [], [], [] # wdrc with Distributionally Robust kalman Filter (neurips)
@@ -139,24 +139,26 @@ def summarize(out_lq_list, out_dr_list, out_drkf_list, out_mmse_list, dist, path
                 plt.plot(t, x_lqr_mean[:,i,0], 'tab:red', label='LQG')
                 plt.fill_between(t, x_lqr_mean[:,i, 0] + 0.3*x_lqr_std[:,i,0],
                                x_lqr_mean[:,i,0] - 0.3*x_lqr_std[:,i,0], facecolor='tab:red', alpha=0.3)
-            if drkf:
-                plt.plot(t, x_drkf_mean[:,i,0], 'tab:purple', label='DRKF-WDRC')
-                plt.fill_between(t, x_drkf_mean[:,i, 0] + 0.3*x_drkf_std[:,i,0],
-                               x_drkf_mean[:,i,0] - 0.3*x_drkf_std[:,i,0], facecolor='tab:purple', alpha=0.3)
-            if mmse:
-                plt.plot(t, x_mmse_mean[:,i,0], 'tab:green', label='MMSE-WDRC')
-                plt.fill_between(t, x_mmse_mean[:,i, 0] + 0.3*x_mmse_std[:,i,0],
-                               x_mmse_mean[:,i,0] - 0.3*x_mmse_std[:,i,0], facecolor='tab:green', alpha=0.3)
             if wdrc:
                 plt.plot(t, x_mean[:,i,0], 'tab:blue', label='WDRC')
                 plt.fill_between(t, x_mean[:,i,0] + 0.3*x_std[:,i,0],
                                 x_mean[:,i,0] - 0.3*x_std[:,i,0], facecolor='tab:blue', alpha=0.3)
+            if drkf:
+                plt.plot(t, x_drkf_mean[:,i,0], 'tab:green', label='DRKF-WDRC')
+                plt.fill_between(t, x_drkf_mean[:,i, 0] + 0.3*x_drkf_std[:,i,0],
+                               x_drkf_mean[:,i,0] - 0.3*x_drkf_std[:,i,0], facecolor='tab:green', alpha=0.3)
+            if mmse:
+                plt.plot(t, x_mmse_mean[:,i,0], 'tab:purple', label='MMSE-WDRC')
+                plt.fill_between(t, x_mmse_mean[:,i, 0] + 0.3*x_mmse_std[:,i,0],
+                               x_mmse_mean[:,i,0] - 0.3*x_mmse_std[:,i,0], facecolor='tab:purple', alpha=0.3)
+            
                 
             plt.xlabel(r'$t$', fontsize=22)
-            if i<=9:
-                plt.ylabel(r'$\Delta \delta_{{{}}}$'.format(i+1), fontsize=22)
-            else:
-                plt.ylabel(r'$\Delta \omega_{{{}}}$'.format(i-9), fontsize=22)
+            # if i<=9:
+            #     plt.ylabel(r'$\Delta \delta_{{{}}}$'.format(i+1), fontsize=22)
+            # else:
+            #     plt.ylabel(r'$\Delta \omega_{{{}}}$'.format(i-9), fontsize=22)
+            plt.ylabel(r'$x_{{{}}}$'.format(i+1), fontsize=22)
             plt.legend(fontsize=20)
             plt.grid()
             plt.xticks(fontsize=20)
@@ -166,7 +168,10 @@ def summarize(out_lq_list, out_dr_list, out_drkf_list, out_mmse_list, dist, path
             ax.locator_params(axis='y', nbins=5)
             ax.locator_params(axis='x', nbins=5)
             fig.set_size_inches(6, 4)
-            plt.savefig(path +'states_{}_{}.pdf'.format(i+1, num), dpi=300, bbox_inches="tight")
+            if application=="Nothing":
+                plt.savefig(path +'states_{}_{}_{}_{}.pdf'.format(i+1, num, dist, noise_dist), dpi=300, bbox_inches="tight")
+            else:
+                plt.savefig(path +'states_{}_{}_{}_{}_{}.pdf'.format(i+1, num, dist, noise_dist, application), dpi=300, bbox_inches="tight")
             plt.clf()
 
         t = np.arange(T)
@@ -174,20 +179,21 @@ def summarize(out_lq_list, out_dr_list, out_drkf_list, out_mmse_list, dist, path
 
             if u_lqr_list != []:
                 plt.plot(t, u_lqr_mean[:,i,0], 'tab:red', label='LQG')
-                plt.fill_between(t, u_lqr_mean[:,i,0] + u_lqr_std[:,i,0],
-                             u_lqr_mean[:,i,0] - u_lqr_std[:,i,0], facecolor='tab:red', alpha=0.3)
-            if drkf:
-                plt.plot(t, u_drkf_mean[:,i,0], 'tab:purple', label='DRKF-WDRC')
-                plt.fill_between(t, u_drkf_mean[:,i,0] + u_drkf_std[:,i,0],
-                             u_drkf_mean[:,i,0] - u_drkf_std[:,i,0], facecolor='tab:purple', alpha=0.3)                
-            if mmse:
-                plt.plot(t, u_mmse_mean[:,i,0], 'tab:green', label='MMSE-WDRC')
-                plt.fill_between(t, u_mmse_mean[:,i,0] + u_mmse_std[:,i,0],
-                             u_mmse_mean[:,i,0] - u_mmse_std[:,i,0], facecolor='tab:green', alpha=0.3)
+                plt.fill_between(t, u_lqr_mean[:,i,0] + 0.25*u_lqr_std[:,i,0],
+                             u_lqr_mean[:,i,0] - 0.25*u_lqr_std[:,i,0], facecolor='tab:red', alpha=0.3)
             if wdrc:
                 plt.plot(t, u_mean[:,i,0], 'tab:blue', label='WDRC')
-                plt.fill_between(t, u_mean[:,i,0] + u_std[:,i,0],
-                                u_mean[:,i,0] - u_std[:,i,0], facecolor='tab:blue', alpha=0.3)
+                plt.fill_between(t, u_mean[:,i,0] + 0.25*u_std[:,i,0],
+                                u_mean[:,i,0] - 0.25*u_std[:,i,0], facecolor='tab:blue', alpha=0.3)
+            if drkf:
+                plt.plot(t, u_drkf_mean[:,i,0], 'tab:green', label='DRKF-WDRC')
+                plt.fill_between(t, u_drkf_mean[:,i,0] + 0.25*u_drkf_std[:,i,0],
+                             u_drkf_mean[:,i,0] - 0.25*u_drkf_std[:,i,0], facecolor='tab:green', alpha=0.3)                
+            if mmse:
+                plt.plot(t, u_mmse_mean[:,i,0], 'tab:purple', label='MMSE-WDRC')
+                plt.fill_between(t, u_mmse_mean[:,i,0] + 0.25*u_mmse_std[:,i,0],
+                             u_mmse_mean[:,i,0] - 0.25*u_mmse_std[:,i,0], facecolor='tab:purple', alpha=0.3)
+            
             plt.xlabel(r'$t$', fontsize=16)
             plt.ylabel(r'$u_{{{}}}$'.format(i+1), fontsize=16)
             plt.legend(fontsize=16)
@@ -195,28 +201,31 @@ def summarize(out_lq_list, out_dr_list, out_drkf_list, out_mmse_list, dist, path
             plt.xticks(fontsize=16)
             plt.yticks(fontsize=16)
             plt.xlim([t[0], t[-1]])
-
-            plt.savefig(path +'controls_{}_{}.pdf'.format(i+1, num), dpi=300, bbox_inches="tight")
+            if application=="Nothing":
+                plt.savefig(path +'controls_{}_{}_{}_{}.pdf'.format(i+1, num, dist, noise_dist), dpi=300, bbox_inches="tight")
+            else:
+                plt.savefig(path +'controls_{}_{}_{}_{}_{}.pdf'.format(i+1, num, dist, noise_dist, application), dpi=300, bbox_inches="tight")
             plt.clf()
 
         t = np.arange(T+1)
         for i in range(ny):
             if y_lqr_list != []:
                 plt.plot(t, y_lqr_mean[:,i,0], 'tab:red', label='LQG')
-                plt.fill_between(t, y_lqr_mean[:,i,0] + y_lqr_std[:,i,0],
-                             y_lqr_mean[:,i, 0] - y_lqr_std[:,i,0], facecolor='tab:red', alpha=0.3)
-            if drkf:
-                plt.plot(t, y_drkf_mean[:,i,0], 'tab:purple', label='DRKF-WDRC')
-                plt.fill_between(t, y_drkf_mean[:,i,0] + y_drkf_std[:,i,0],
-                             y_drkf_mean[:,i, 0] - y_drkf_std[:,i,0], facecolor='tab:purple', alpha=0.3)
-            if mmse:
-                plt.plot(t, y_mmse_mean[:,i,0], 'tab:green', label='MMSE-WDRC')
-                plt.fill_between(t, y_mmse_mean[:,i,0] + y_mmse_std[:,i,0],
-                             y_mmse_mean[:,i, 0] - y_mmse_std[:,i,0], facecolor='tab:green', alpha=0.3)
+                plt.fill_between(t, y_lqr_mean[:,i,0] + 0.25*y_lqr_std[:,i,0],
+                             y_lqr_mean[:,i, 0] - 0.25*y_lqr_std[:,i,0], facecolor='tab:red', alpha=0.3)
             if wdrc:
                 plt.plot(t, y_mean[:,i,0], 'tab:blue', label='WDRC')
-                plt.fill_between(t, y_mean[:,i,0] + y_std[:,i,0],
-                                y_mean[:,i, 0] - y_std[:,i,0], facecolor='tab:blue', alpha=0.3)
+                plt.fill_between(t, y_mean[:,i,0] + 0.25*y_std[:,i,0],
+                                y_mean[:,i, 0] - 0.25*y_std[:,i,0], facecolor='tab:blue', alpha=0.3)
+            if drkf:
+                plt.plot(t, y_drkf_mean[:,i,0], 'tab:green', label='DRKF-WDRC')
+                plt.fill_between(t, y_drkf_mean[:,i,0] + 0.25*y_drkf_std[:,i,0],
+                             y_drkf_mean[:,i, 0] - 0.25*y_drkf_std[:,i,0], facecolor='tab:green', alpha=0.3)
+            if mmse:
+                plt.plot(t, y_mmse_mean[:,i,0], 'tab:purple', label='MMSE-WDRC')
+                plt.fill_between(t, y_mmse_mean[:,i,0] + 0.25*y_mmse_std[:,i,0],
+                             y_mmse_mean[:,i, 0] - 0.25*y_mmse_std[:,i,0], facecolor='tab:purple', alpha=0.3)
+            
             plt.xlabel(r'$t$', fontsize=16)
             plt.ylabel(r'$y_{{{}}}$'.format(i+1), fontsize=16)
             plt.legend(fontsize=16)
@@ -224,8 +233,10 @@ def summarize(out_lq_list, out_dr_list, out_drkf_list, out_mmse_list, dist, path
             plt.xticks(fontsize=16)
             plt.yticks(fontsize=16)
             plt.xlim([t[0], t[-1]])
-
-            plt.savefig(path +'outputs_{}_{}.pdf'.format(i+1,num), dpi=300, bbox_inches="tight")
+            if application=="Nothing":
+                plt.savefig(path +'outputs_{}_{}_{}_{}.pdf'.format(i+1,num, dist, noise_dist), dpi=300, bbox_inches="tight")
+            else:
+                plt.savefig(path +'outputs_{}_{}_{}_{}_{}.pdf'.format(i+1,num, dist, noise_dist, application), dpi=300, bbox_inches="tight")
             plt.clf()
 
 
@@ -240,11 +251,11 @@ def summarize(out_lq_list, out_dr_list, out_drkf_list, out_mmse_list, dist, path
             plt.fill_between(t, J_mean + 0.25*J_std, J_mean - 0.25*J_std, facecolor='tab:blue', alpha=0.3)
         
         if drkf:
-            plt.plot(t, J_drkf_mean, 'tab:purple', label='DRKF-WDRC')
-            plt.fill_between(t, J_drkf_mean + 0.25*J_drkf_std, J_drkf_mean - 0.25*J_drkf_std, facecolor='tab:purple', alpha=0.3)
+            plt.plot(t, J_drkf_mean, 'tab:green', label='DRKF-WDRC')
+            plt.fill_between(t, J_drkf_mean + 0.25*J_drkf_std, J_drkf_mean - 0.25*J_drkf_std, facecolor='tab:green', alpha=0.3)
         if mmse:
-            plt.plot(t, J_mmse_mean, 'tab:green', label='MMSE-WDRC')
-            plt.fill_between(t, J_mmse_mean + 0.25*J_mmse_std, J_mmse_mean - 0.25*J_mmse_std, facecolor='tab:green', alpha=0.3)
+            plt.plot(t, J_mmse_mean, 'tab:purple', label='MMSE-WDRC')
+            plt.fill_between(t, J_mmse_mean + 0.25*J_mmse_std, J_mmse_mean - 0.25*J_mmse_std, facecolor='tab:purple', alpha=0.3)
         
         plt.xlabel(r'$t$', fontsize=16)
         plt.ylabel(r'$V_t(x_t)$', fontsize=16)
@@ -253,7 +264,10 @@ def summarize(out_lq_list, out_dr_list, out_drkf_list, out_mmse_list, dist, path
         plt.xlim([t[0], t[-1]])
         plt.xticks(fontsize=16)
         plt.yticks(fontsize=16)
-        plt.savefig(path +'J_{}.pdf'.format(num), dpi=300, bbox_inches="tight")
+        if application=="Nothing":
+            plt.savefig(path +'J_{}_{}_{}.pdf'.format(num, dist, noise_dist), dpi=300, bbox_inches="tight")
+        else:
+            plt.savefig(path +'J_{}_{}_{}_{}.pdf'.format(num, dist, noise_dist, application), dpi=300, bbox_inches="tight")
         plt.clf()
 
 
@@ -283,18 +297,18 @@ def summarize(out_lq_list, out_dr_list, out_drkf_list, out_mmse_list, dist, path
         if wdrc:
             ax.hist(J_ar[:,0], bins=50, range=(min_bin,max_bin), color='tab:blue', label='WDRC', alpha=0.5, linewidth=0.5, edgecolor='tab:blue')
         if drkf:
-            ax.hist(J_drkf_ar[:,0], bins=50, range=(min_bin,max_bin), color='tab:purple', label='DRKF-WDRC', alpha=0.5, linewidth=0.5, edgecolor='tab:purple')
+            ax.hist(J_drkf_ar[:,0], bins=50, range=(min_bin,max_bin), color='tab:green', label='DRKF-WDRC', alpha=0.5, linewidth=0.5, edgecolor='tab:green')
         if mmse:
-            ax.hist(J_mmse_ar[:,0], bins=50, range=(min_bin,max_bin), color='tab:green', label='MMSE-WDRC', alpha=0.5, linewidth=0.5, edgecolor='tab:green')
+            ax.hist(J_mmse_ar[:,0], bins=50, range=(min_bin,max_bin), color='tab:purple', label='MMSE-WDRC', alpha=0.5, linewidth=0.5, edgecolor='tab:purple')
         
         
         if wdrc:
             ax.axvline(J_ar[:,0].mean(), color='navy', linestyle='dashed', linewidth=1.5)
         ax.axvline(J_lqr_ar[:,0].mean(), color='maroon', linestyle='dashed', linewidth=1.5)
         if drkf:
-            ax.axvline(J_drkf_ar[:,0].mean(), color='purple', linestyle='dashed', linewidth=1.5)
+            ax.axvline(J_drkf_ar[:,0].mean(), color='green', linestyle='dashed', linewidth=1.5)
         if mmse:
-            ax.axvline(J_mmse_ar[:,0].mean(), color='green', linestyle='dashed', linewidth=1.5)
+            ax.axvline(J_mmse_ar[:,0].mean(), color='purple', linestyle='dashed', linewidth=1.5)
 
         plt.xticks(fontsize=16)
         plt.yticks(fontsize=16)
@@ -308,7 +322,7 @@ def summarize(out_lq_list, out_dr_list, out_drkf_list, out_mmse_list, dist, path
             order = [1, 0, 2, 3]
             ax.legend([handles[idx] for idx in order], [labels[idx] for idx in order], fontsize=14)
         elif drkf:
-            order = [1, 0, 2]
+            order = [0, 1, 2]
             ax.legend([handles[idx] for idx in order], [labels[idx] for idx in order], fontsize=14)
         elif mmse:
             order = [1, 0, 2]
@@ -323,7 +337,10 @@ def summarize(out_lq_list, out_dr_list, out_drkf_list, out_mmse_list, dist, path
         plt.ylabel(r'Frequency', fontsize=16)
         plt.xticks(fontsize=16)
         plt.yticks(fontsize=16)
-        plt.savefig(path +'J_hist_{}.pdf'.format(num), dpi=300, bbox_inches="tight")
+        if application =="Nothing":
+            plt.savefig(path +'J_hist_{}_{}_{}.pdf'.format(num, dist, noise_dist), dpi=300, bbox_inches="tight")
+        else:
+            plt.savefig(path +'J_hist_{}_{}_{}_{}.pdf'.format(num, dist, noise_dist, application), dpi=300, bbox_inches="tight")
         plt.clf()
 
 
@@ -352,9 +369,11 @@ def summarize(out_lq_list, out_dr_list, out_drkf_list, out_mmse_list, dist, path
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dist', required=False, default="normal", type=str) #disurbance distribution (normal or uniform)
+    parser.add_argument('--dist', required=False, default="normal", type=str) #disurbance distribution (normal or uniform or quad)
+    parser.add_argument('--noise_dist', required=False, default="normal", type=str) #noise distribution (normal or uniform or quad)
     parser.add_argument('--sim_type', required=False, default="multiple", type=str) #type of simulation runs (single or multiple)
     parser.add_argument('--num_sim', required=False, default=500, type=int) #number of simulation runs to plot
+    parser.add_argument('--application', required=False, default="Quad3DOF", type=str)
     parser.add_argument('--infinite', required=False, action="store_true") #infinite horizon settings if flagged
     parser.add_argument('--plot', required=False, action="store_true")
     parser.add_argument('--h_inf', required=False, action="store_true")
@@ -369,7 +388,8 @@ if __name__ == "__main__":
         
     print('\n-------Summary-------')
     if args.sim_type == "multiple":
-        path = "./results/{}/finite/multiple/".format(args.dist)
+        path = "./results/{}/{}_{}/finite/multiple/".format(args.application, args.dist, args.noise_dist)
+        
         #Load data
         lqg_file = open(path + 'lqg.pkl', 'rb')
         wdrc_file = open(path + 'wdrc.pkl', 'rb')
@@ -388,7 +408,7 @@ if __name__ == "__main__":
         mmse_wdrc_data = pickle.load(mmse_wdrc_file)
         mmse_wdrc_file.close()
         
-        summarize(lqg_data, wdrc_data, drkf_wdrc_data, mmse_wdrc_data, args.dist, path, args.num_sim, True, True, True, False)
+        summarize(lqg_data, wdrc_data, drkf_wdrc_data, mmse_wdrc_data, args.dist, args.noise_dist, path, args.num_sim, plot_results=True, wdrc = True, drkf=True, mmse=False, application=args.application)
     else:
         path = "./results/{}/{}/single/".format(args.dist, horizon)
 
