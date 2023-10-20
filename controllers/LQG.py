@@ -106,7 +106,8 @@ class LQG:
 
 #        temp = np.linalg.solve(self.C @ P_ @ self.C.T + self.M, self.C @ P_)
 #        P_new = P_ - P_ @ self.C.T @ temp
-        x_new = x_ + P @ self.C.T @ np.linalg.inv(M_hat) @ resid
+        temp = np.linalg.solve(M_hat, resid)
+        x_new = x_ + P @ self.C.T @ temp
         return x_new
 
     def riccati(self, Phi, P, S, r, z, Sigma_hat, mu_hat):
@@ -191,10 +192,10 @@ class LQG:
             #Update the state estimation (using the nominal mean and covariance)
             x_mean[t+1] = self.kalman_filter(self.M_hat[t], x_mean[t], self.x_cov[t+1], y[t+1], self.mu_hat[t], u=u[t])
 
-            #Compute the total cost
-            J[self.T] = x[self.T].T @ self.Qf @ x[self.T]
-            for t in range(self.T-1, -1, -1):
-                J[t] = J[t+1] + x[t].T @ self.Q @ x[t] + u[t].T @ self.R @ u[t]
+        #Compute the total cost
+        J[self.T] = x[self.T].T @ self.Qf @ x[self.T]
+        for t in range(self.T-1, -1, -1):
+            J[t] = J[t+1] + x[t].T @ self.Q @ x[t] + u[t].T @ self.R @ u[t]
 
         end = time.time()
         time_ = end-start

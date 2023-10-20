@@ -62,7 +62,7 @@ def summarize_noise(num_noise_list, avg_cost_lqg, std_cost_lqg, avg_cost_wdrc, s
     plt.plot(t, J_drkf_wdrc_mean, 'tab:green', label='DRKF-WDRC (sample)')
     plt.fill_between(t, J_drkf_wdrc_mean + 0.25*J_drkf_wdrc_std, J_drkf_wdrc_mean - 0.25*J_drkf_wdrc_std, facecolor='tab:green', alpha=0.3)
     
-    #plt.plot(t, J_mmse_wdrc_mean, 'tab:green', label='MMSE-WDRC (sample)')
+    #plt.plot(t, J_mmse_wdrc_mean, 'tab:purple', label='MMSE-WDRC (sample)')
     #plt.fill_between(t, J_mmse_wdrc_mean + 0.25*J_mmse_wdrc_std, J_mmse_wdrc_mean - 0.25*J_mmse_wdrc_std, facecolor='tab:purple', alpha=0.3)
     
     

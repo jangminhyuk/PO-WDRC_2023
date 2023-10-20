@@ -4,13 +4,14 @@
 import numpy as np
 import time
 from scipy.optimize import minimize
+import cvxpy as cp
 import scipy
 import control
-import cvxpy as cp
 
-class inf_DRKF_WDRC: # TODO NOT IMPLEMENTED YET!!!!!!!!!
-    def __init__(self, lambda_, theta, T, dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat):
+class inf_DRKF_WDRC:
+    def __init__(self, theta, T, dist, noise_dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat, app_lambda):
         self.dist = dist
+        self.noise_dist = noise_dist
         self.T = T
         self.A, self.B, self.C, self.Q, self.Qf, self.R, self.M = system_data
         self.M_hat = M_hat
@@ -23,66 +24,63 @@ class inf_DRKF_WDRC: # TODO NOT IMPLEMENTED YET!!!!!!!!!
         self.Sigma_hat = Sigma_hat
         self.mu_w = mu_w
         self.Sigma_w = Sigma_w
-        if self.dist=="uniform":
+        self.error_bound = 1e-5
+        self.max_iteration = 1000
+        self.theta = theta
+        
+        if self.dist=="uniform" or self.dist=="quadratic":
             self.x0_max = x0_max
             self.x0_min = x0_min
             self.w_max = w_max
             self.w_min = w_min
-            self.v_min = v_min
+            
+        if self.noise_dist =="uniform" or self.noise_dist =="quadratic":
             self.v_max = v_max
-
-        self.error_bound = 1e-5
-        self.max_iteration = 1000
-
-        self.theta = theta
-        if dist=="normal":
-#            self.lambda_ = 1446.7981611649352
-            self.lambda_ = lambda_
-        elif dist=="uniform":
-#            self.lambda_= 1107.653293607882
-            self.lambda_ = lambda_
-#        elif dist=="multimodal":
-#            self.lambda_ = 10000
-#        ass = self.check_assumption(self.lambda_)
-#        self.lambda_ = self.optimize_penalty() 
-#        self.optimize_penalty() #optimize penalty parameter for theta
+            self.v_min = v_min
+        #Initial state
+        if self.dist=="normal":
+            self.lambda_ = 1400
+        elif self.dist=="uniform":
+            self.lambda_ = 1400
+        elif self.dist=="quadratic":
+            self.lambda_ = 1400
+        
+        if app_lambda>0:
+            self.lambda_ = app_lambda #use for lambda modification in application
+            
+        print("inf_DRKF_WDRC ", self.dist, " / ", self.noise_dist)
+        #self.lambda_ = self.optimize_penalty() 
         self.Phi = self.B @ np.linalg.inv(self.R) @ self.B.T - 1/self.lambda_ * np.eye(self.nx)
-        ctrb = control.ctrb(self.A, scipy.linalg.sqrtm(self.Phi))
-        obs = control.obsv(self.A, scipy.linalg.sqrtm(self.Q))
-        obs_ = control.obsv(self.A, self.C)
-        ctrb_ = control.ctrb(self.A, scipy.linalg.sqrtm(self.Sigma_hat))
         self.flag= True
-#        self.sdp_prob = self.gen_sdp(self.lambda_)
-#        if np.linalg.matrix_rank(ctrb) == self.nx:
-#            print('Rank is {} - Controllable'.format(self.nx))
-#        else:
-#            print('Rank is {} - Not Controllable'.format(np.linalg.matrix_rank(ctrb)))
-#        if np.linalg.matrix_rank(obs) == self.nx:
-#            print('Rank is {} - Observable'.format(self.nx))
-#        else:
-#            print('Rank is {} - Not Observable'.format(np.linalg.matrix_rank(obs)))
-#        if np.linalg.matrix_rank(ctrb_) == self.nx:
-#            print('Rank is {} - Controllable'.format(self.nx))
-#        else:
-#            print('Rank is {} - Not Controllable'.format(np.linalg.matrix_rank(ctrb_)))
-#        if np.linalg.matrix_rank(obs_) == self.nx:
-#            print('Rank is {} - Observable'.format(self.nx))
-#        else:
-#            print('Rank is {} - Not Observable'.format(np.linalg.matrix_rank(obs_)))
-
-
+        
+        #self.lambda_ = self.optimize_penalty() #optimize penalty parameter for theta
+#        self.lambda_ = 3.5
+        #self.binarysearch_infimum_penalty_finite()
+        # self.P = np.zeros((self.T+1, self.nx, self.nx))
+        # self.S = np.zeros((self.T+1, self.nx, self.nx))
+        # self.r = np.zeros((self.T+1, self.nx, 1))
+        # self.z = np.zeros(self.T+1)
+        # self.K = np.zeros(( self.T, self.nu, self.nx))
+        # self.L = np.zeros(( self.T, self.nu, 1))
+        # self.H = np.zeros(( self.T, self.nx, self.nx))
+        # self.h = np.zeros(( self.T, self.nx, 1))
+        # self.g = np.zeros(( self.T, self.nx, self.nx))
+        
+        #self.sdp_prob = self.gen_sdp(self.lambda_)
+    
     def optimize_penalty(self):
         # Find inf_penalty (infimum value of penalty coefficient satisfying Assumption 1)
         self.infimum_penalty = self.binarysearch_infimum_penalty_finite()
         print("Infimum penalty:", self.infimum_penalty)
         #Optimize penalty using nelder-mead method
         #optimal_penalty = minimize(self.objective, x0=np.array([2*self.infimum_penalty]), method='nelder-mead', options={'xatol': 1e-6, 'disp': False}).x[0]
-#        self.infimum_penalty = 751.3355114497244
+        #self.infimum_penalty = 1.5
         #np.max(np.linalg.eigvals(self.Qf)) + 1e-6
         output = minimize(self.objective, x0=np.array([2*self.infimum_penalty]), method='Nelder-Mead', options={'disp': False, 'maxiter': 100, 'ftol': 1e-7})
         print(output.message)
         optimal_penalty = output.x[0]
-        print("Optimal penalty (lambda_star):", optimal_penalty)
+        #optimal_penalty = 2* self.infimum_penalty
+        print("DRKF WDRC Optimal penalty (lambda_star):", optimal_penalty)
         return optimal_penalty
 
     def objective(self, penalty):
@@ -117,7 +115,7 @@ class inf_DRKF_WDRC: # TODO NOT IMPLEMENTED YET!!!!!!!!!
 #                sdp_prob = self.gen_sdp(penalty)
                 P_post_ss, sigma_wc_ss, z_tilde_ss, status = self.KF_riccati(self.x0_cov, P_ss, S_ss, penalty)
                 if status in ["infeasible", "unbounded", "unknown"]:
-#                    print(status)
+                    print(status)
                     return np.inf
                 if np.max(sigma_wc_ss) >= 1e2:
                     return np.inf
@@ -127,8 +125,7 @@ class inf_DRKF_WDRC: # TODO NOT IMPLEMENTED YET!!!!!!!!!
                 rho = (2*self.mu_hat - Phi @ r_ss).T @ temp @ r_ss - penalty* np.trace(self.Sigma_hat) + self.mu_hat.T @ temp @ P_ss @ self.mu_hat + z_tilde_ss
 #                print('Lambda: ', penalty, 'Objective: ', penalty*self.theta**2 + rho[0])
                 return penalty*self.theta**2 + rho[0]
-
-
+            
     def binarysearch_infimum_penalty_finite(self):
         left = 0
         right = 100000
@@ -170,14 +167,15 @@ class inf_DRKF_WDRC: # TODO NOT IMPLEMENTED YET!!!!!!!!!
             z = z_temp
             if max_diff < self.error_bound:
 #                sdp_prob = self.gen_sdp(penalty)
+                #print(np.max(np.linalg.eigvals(self.x0_cov)))
                 P_post_ss, sigma_wc_ss, z_tilde_ss, status = self.KF_riccati(self.x0_cov, P, S, penalty)
                 if status in ["infeasible", "unbounded"]:
-#                    print(status)
+                    #print(status)
                     return False
                 if np.max(sigma_wc_ss) >= 1e2:
                     return False
                 return True
-#        print("Minimax Riccati iteration did not converge")
+        print("Minimax Riccati iteration did not converge")
 
     def uniform(self, a, b, N=1):
         n = a.shape[0]
@@ -186,7 +184,6 @@ class inf_DRKF_WDRC: # TODO NOT IMPLEMENTED YET!!!!!!!!!
 
     def normal(self, mu, Sigma, N=1):
         n = mu.shape[0]
-#        w = np.random.normal(size=(n,N)).T
         w = scipy.stats.norm.ppf(np.random.rand(n,N)).T
         
         if (Sigma == 0).all():
@@ -195,209 +192,219 @@ class inf_DRKF_WDRC: # TODO NOT IMPLEMENTED YET!!!!!!!!!
             x = mu + np.linalg.cholesky(Sigma) @ w.T
 #        x = np.random.multivariate_normal(mu[:,0], Sigma, size=N).T
         return x
+    
+    def quad_inverse(self, x, b, a):
+        row = x.shape[0]
+        col = x.shape[1]
+        for i in range(row):
+            for j in range(col):
+                beta = (a[j]+b[j])/2.0
+                alpha = 12.0/((b[j]-a[j])**3)
+                tmp = 3*x[i][j]/alpha - (beta - a[j])**3
+                if 0<=tmp:
+                    x[i][j] = beta + ( tmp)**(1./3.)
+                else:
+                    x[i][j] = beta -(-tmp)**(1./3.)
+        return x
 
-    def multimodal(self, mu, Sigma, N=1):
-        modes = 2
-        n = mu[0].shape[0]
-        x = np.zeros((n,N,modes))
-        for i in range(modes):
-            w = np.random.normal(size=(N,n))
-            if (Sigma[i] == 0).all():
-                x[:,:,i] = mu[i]
-            else:
-                x[:,:,i] = mu[i] + np.linalg.cholesky(Sigma[i]) @ w.T
-
-        #w = np.random.choice([0, 1], size=(n,N))
-        w = 0.5
-        y = x[:,:,0]*w + x[:,:,1]*(1-w)
-        return y
-
+    # quadratic U-shape distrubituon in [wmin , wmax]
+    def quadratic(self, wmax, wmin, N=1):
+        n = wmin.shape[0]
+        x = np.random.rand(N, n)
+        x = self.quad_inverse(x, wmax, wmin)
+        return x.T
+    
     def gen_sdp(self, lambda_):
-            Sigma = cp.Variable((self.nx,self.nx), symmetric=True)
-            U = cp.Variable((self.nx,self.nx), symmetric=True)
-            V = cp.Variable((self.nx,self.nx), symmetric=True)
-            P_bar_1 = cp.Variable((self.nx,self.nx), symmetric=True)
+        Sigma = cp.Variable((self.nx,self.nx), symmetric=True)
+        Y = cp.Variable((self.nx,self.nx), symmetric=True)
+        X = cp.Variable((self.nx,self.nx), symmetric=True)
+        X_pred = cp.Variable((self.nx,self.nx), symmetric=True)
+    
+        P_var = cp.Parameter((self.nx,self.nx))
+        S_var = cp.Parameter((self.nx,self.nx))
+        Sigma_hat_12_var = cp.Parameter((self.nx,self.nx))
         
-            P_var = cp.Parameter((self.nx,self.nx))
-            S_var = cp.Parameter((self.nx,self.nx))
-            Sigma_hat_12_var = cp.Parameter((self.nx,self.nx))
-            P_bar = cp.Parameter((self.nx,self.nx))
-            
-            obj = cp.Maximize(cp.trace((P_var - lambda_*np.eye(self.nx)) @ Sigma) + 2*lambda_*cp.trace(U) + cp.trace(S_var @ V))
-            
-            constraints = [
-                    cp.bmat([[Sigma_hat_12_var @ Sigma @ Sigma_hat_12_var, U],
-                             [U, np.eye(self.nx)]
-                             ]) >> 0,
-                    Sigma >> 0,
-                    P_bar_1 >> 0,
-                    cp.bmat([[P_bar_1 - V, P_bar_1 @ self.C.T],
-                             [self.C @ P_bar_1, self.C @ P_bar_1 @ self.C.T + self.M_hat]
-                            ]) >> 0,        
-                    P_bar_1 == self.A @ P_bar @ self.A.T + Sigma,
-                    self.C @ P_bar_1 @ self.C.T + self.M_hat >> 0,
-                    U >> 0,
-                    V >> 0
-                    ]
-            prob = cp.Problem(obj, constraints)
-            return prob
-
-    def gen_sdp_1(self, lambda_):
-            Sigma = cp.Variable((self.nx,self.nx), symmetric=True)
-            U = cp.Variable((self.nx,self.nx), symmetric=True)
-            V = cp.Variable((self.nx,self.nx), symmetric=True)
-            P_bar = cp.Variable((self.nx,self.nx), symmetric=True)
+        obj = cp.Maximize(cp.trace((P_var - lambda_*np.eye(self.nx)) @ Sigma) + 2*lambda_*cp.trace(Y) + cp.trace(S_var @ X))
         
-            P_var = cp.Parameter((self.nx,self.nx))
-            S_var = cp.Parameter((self.nx,self.nx))
-            Sigma_hat_12_var = cp.Parameter((self.nx,self.nx))
-            
-            obj = cp.Maximize(cp.trace((P_var - lambda_*np.eye(self.nx)) @ Sigma) + 2*lambda_*cp.trace(U) + cp.trace(S_var @ V))
-            
-            constraints = [
-                    cp.bmat([[Sigma_hat_12_var @ Sigma @ Sigma_hat_12_var, U],
-                             [U, np.eye(self.nx)]
-                             ]) >> 0,
-                    Sigma >> 0,
-                    P_bar >> 0,
-                    cp.bmat([[P_bar - V, P_bar @ self.C.T],
-                             [self.C @ P_bar, self.C @ P_bar @ self.C.T + np.linalg.inv(self.M_hat)]
-                            ]) >> 0,        
-#                    P_bar >= self.A @ V @ self.A.T + Sigma,
-                    cp.bmat([[self.A @ P_bar @ self.A.T - P_bar, self.A @ P_bar @ self.C.T],
-                             [self.C @ P_bar @ self.A.T, self.C @ P_bar @ self.C.T + np.linalg.inv(self.M_hat)]
-                            ]) >> 0,        
-                    U >> 0,
-                    V >> 0
-                    ]
-            prob = cp.Problem(obj, constraints)
-            return prob
+        constraints = [
+                cp.bmat([[Sigma_hat_12_var @ Sigma @ Sigma_hat_12_var, Y],
+                            [Y, np.eye(self.nx)]
+                            ]) >> 0,
+                Sigma >> 0,
+                X_pred >> 0,
+                cp.bmat([[X_pred - X, X_pred @ self.C.T],
+                        [self.C @ X_pred, self.C @ X_pred @ self.C.T + self.M_hat]
+                        ]) >> 0,        
+                X_pred == self.A @ X @ self.A.T + Sigma,
+                self.C @ X_pred @ self.C.T + self.M_hat >> 0,
+                Y >> 0,
+                X >> 0
+                ]
+        prob = cp.Problem(obj, constraints)
+        return prob
+#         Sigma = cp.Variable((self.nx,self.nx), symmetric=True)
+#         U = cp.Variable((self.nx,self.nx), symmetric=True)
+#         V = cp.Variable((self.nx,self.nx), symmetric=True)
+#         P_bar = cp.Variable((self.nx,self.nx), symmetric=True)
+    
+#         P_var = cp.Parameter((self.nx,self.nx))
+#         S_var = cp.Parameter((self.nx,self.nx))
+#         Sigma_hat_12_var = cp.Parameter((self.nx,self.nx))
         
-    def solve_sdp(self, sdp_prob, x_cov, P, S, Sigma_hat):
+#         obj = cp.Maximize(cp.trace((P_var - lambda_*np.eye(self.nx)) @ Sigma) + 2*lambda_*cp.trace(U) + cp.trace(S_var @ V))
+        
+#         constraints = [
+#                 cp.bmat([[Sigma_hat_12_var @ Sigma @ Sigma_hat_12_var, U],
+#                             [U, np.eye(self.nx)]
+#                             ]) >> 0,
+#                 Sigma >> 0,
+#                 P_bar >> 0,
+#                 cp.bmat([[P_bar - V, P_bar @ self.C.T],
+#                             [self.C @ P_bar, self.C @ P_bar @ self.C.T + np.linalg.inv(self.M_hat)]
+#                         ]) >> 0,        
+# #                    P_bar >= self.A @ V @ self.A.T + Sigma,
+#                 cp.bmat([[self.A @ P_bar @ self.A.T - P_bar, self.A @ P_bar @ self.C.T],
+#                             [self.C @ P_bar @ self.A.T, self.C @ P_bar @ self.C.T + np.linalg.inv(self.M_hat)]
+#                         ]) >> 0,        
+#                 U >> 0,
+#                 V >> 0
+#                 ]
+#         prob = cp.Problem(obj, constraints)
+#         return prob
+        
+        
+    def solve_sdp(self, sdp_prob, P, S, Sigma_hat):
         params = sdp_prob.parameters()
         params[0].value = P
         params[1].value = S
-        params[2].value = np.real(scipy.linalg.sqrtm(Sigma_hat + 1e-4*np.eye(self.nx)))
-#        params[2].value = np.linalg.cholesky(Sigma_hat + 1e-4*np.eye(self.nx))
-        params[3].value = x_cov
-        
-        try:
-            sdp_prob.solve(solver=cp.MOSEK)
-            Sigma = sdp_prob.variables()[0].value
-            U = sdp_prob.variables()[1].value
-            V = sdp_prob.variables()[2].value
-            P_post = sdp_prob.variables()[3].value
-            cost = sdp_prob.value
-            status = sdp_prob.status
-        except cp.error.SolverError:
-#            sdp_prob.solve(solver=cp.SCS)
-            Sigma = sdp_prob.variables()[0].value
-            U = sdp_prob.variables()[1].value
-            V = sdp_prob.variables()[2].value
-            P_post = sdp_prob.variables()[3].value
-            cost = sdp_prob.value
-            status = "unknown"
-
-        return Sigma, P_post, U, V, cost, status
-	
-    def solve_sdp_1(self, sdp_prob, P, S, Sigma_hat):
-        params = sdp_prob.parameters()
-        params[0].value = P
-        params[1].value = S
-        params[2].value = np.real(scipy.linalg.sqrtm(Sigma_hat + 1e-4*np.eye(self.nx)))
-#        params[3].value = x_cov
+        params[2].value = np.real(scipy.linalg.sqrtm(Sigma_hat))
         
         sdp_prob.solve(solver=cp.MOSEK)
         Sigma = sdp_prob.variables()[0].value
-        P_post = sdp_prob.variables()[3].value
         cost = sdp_prob.value
         status = sdp_prob.status
         return Sigma, cost, status
     
     def kalman_filter(self, x, y, mu_w, t):
         if t==0:
-            x_new = x + self.P_post @ self.C.T @ np.linalg.inv(self.M_hat) @ (y - self.C @ x)
+            x_new = x + self.X_pred @ self.C.T @ np.linalg.inv(self.M_hat) @ (y - self.C @ x)
         else:
             #Performs state estimation based on the current state estimate, control input and new observation
-            x_new = (self.A + self.B @ self.K_ss) @ x + self.B @ self.L_ss + mu_w + self.P_post @ self.C.T @ np.linalg.inv(self.M_hat) @ (y - self.C @ (self.A + self.B @ self.K_ss) @ x - self.C @ self.B @ self.L_ss)
+            x_new = (self.A + self.B @ self.K_ss) @ x + self.B @ self.L_ss + mu_w + self.X_pred @ self.C.T @ np.linalg.inv(self.M_hat) @ (y - self.C @ (self.A + self.B @ self.K_ss) @ x - self.C @ self.B @ self.L_ss)
         return x_new
-    
-    def KF_riccati(self, P_ss_, P_ss, S_ss, lambda_):
-#        P_post = P_ss_ - P_ss_ @ self.C.T @ np.linalg.solve(self.C @ P_ss_ @ self.C.T + self.M_hat, self.C @ P_ss_)
-#        self.sigma_wc_all = np.zeros((self.max_iteration, self.nx, self.nx))
-#        self.z_tilde_all = np.zeros((self.max_iteration, 1))
-        sdp_prob_1 = self.gen_sdp_1(lambda_)
-        sigma_wc_1, z_tilde__, stat_ = self.solve_sdp_1(sdp_prob_1, P_ss, S_ss, self.Sigma_hat)
+
+    def KF_riccati(self, X_pred, P_ss, S_ss, lambda_):
+        sdp_prob = self.gen_sdp(lambda_)
+        sigma_wc_1, z_tilde__, stat_ = self.solve_sdp(sdp_prob, P_ss, S_ss, self.Sigma_hat)
         
-        P_ss__ = P_ss_
+        X_pred_ = X_pred
         for t in range(self.max_iteration):
-            P_ss_temp_ = self.A @ (P_ss__ - P_ss__ @ self.C.T @ np.linalg.solve(self.C @ P_ss__ @ self.C.T + self.M_hat, self.C @ P_ss__)) @ self.A.T + sigma_wc_1
-            if min(np.linalg.eigvals(self.C @ P_ss_temp_ @ self.C.T + self.M_hat)) <= 0:
+            X_pred_temp_ = self.A @ (X_pred_ - X_pred_ @ self.C.T @ np.linalg.solve(self.C @ X_pred_ @ self.C.T + self.M_hat, self.C @ X_pred_)) @ self.A.T + sigma_wc_1
+            if min(np.linalg.eigvals(self.C @ X_pred_temp_ @ self.C.T + self.M_hat)) <= 0:
                     return np.inf
     
             max_diff = 0
-            for row in range(len(P_ss__)):
-               for col in range(len(P_ss__[0])):
-                   if abs(P_ss__[row, col] - P_ss_temp_[row, col]) > max_diff:
-                       max_diff = P_ss__[row, col] - P_ss_temp_[row, col]
-            P_ss__ = P_ss_temp_
-            P_post_ = P_ss__ - P_ss__ @ self.C.T @ np.linalg.solve(self.C @ P_ss__ @ self.C.T + self.M_hat, self.C @ P_ss__)
-
+            for row in range(len(X_pred_)):
+               for col in range(len(X_pred_[0])):
+                   if abs(X_pred_[row, col] - X_pred_temp_[row, col]) > max_diff:
+                       max_diff = X_pred_[row, col] - X_pred_temp_[row, col]
+            X_pred_ = X_pred_temp_
+            X_post_ = X_pred_ - X_pred_ @ self.C.T @ np.linalg.solve(self.C @ X_pred_ @ self.C.T + self.M_hat, self.C @ X_pred_)
+            #print("X_post_", np.linalg.norm(X_post_), "/ max_diff : ", max_diff)
             if abs(max_diff) < self.error_bound:
                 if np.linalg.matrix_rank(control.ctrb(self.A, scipy.linalg.sqrtm(sigma_wc_1))) < self.nx:
                         print('(A, sqrt(Sigma)) is not controllable!!!!!!')
                         stat_ = "infeasible"
-                return P_post_, sigma_wc_1, z_tilde__, stat_
+                return X_post_, sigma_wc_1, z_tilde__, stat_
+            
+        return X_post_, sigma_wc_1, z_tilde__, stat_
+    
+    def solve_DR_sdp(self):
+        #construct problem
+        #Variables
+        S_xx = cp.Variable((self.nx, self.nx), symmetric=True)
+        S_xy = cp.Variable((self.nx, self.ny))
+        S_yy = cp.Variable((self.ny, self.ny), symmetric=True)
+        S = cp.Variable((self.nx+self.ny, self.nx+self.ny), symmetric=True)
+        V = cp.Variable((self.nx+self.ny, self.nx+self.ny))
+        Y = cp.Variable((self.nx,self.nx))
+        
+        #Parameters
+        Sigma = cp.Parameter((self.nx+self.ny , self.nx+self.ny))
+        Sigma_root = cp.Parameter((self.nx+self.ny , self.nx+self.ny))
+        radi = cp.Parameter(nonneg=True)
+        sigma_min = cp.Parameter(nonneg=True)
+        
+        Sigma_z = np.bmat([[self.X_pred, self.X_pred @ self.C.T ],
+                           [ self.C @ self.X_pred , self.C @ self.X_pred @ self.C.T + self.M_hat] 
+                           ])
+        Sigma.value = Sigma_z
+        #Sigma_root.value = np.real(scipy.linalg.sqrtm(Sigma_z + 1e-4*np.eye(self.nx+self.ny)))
+        Sigma_root.value = np.real(scipy.linalg.sqrtm(Sigma_z))
+        radi.value = self.theta
+        sigma_min.value = np.real( np.min(np.linalg.eigvals(Sigma_z)) )
+        
+        #print(sigma_min.value)
+        if sigma_min.value <0:
+            print(" Sigma value negative WRONG!!!!!!")
+        
+        #use Schur Complements
+        #obj function
+        obj = cp.Maximize(cp.trace(Y)) 
+        
+        #constraints
+        constraints = [
+                S == cp.bmat([[S_xx, S_xy],
+                            [S_xy.T, S_yy]
+                            ]),
+                # S - cp.bmat([[Y, np.zeros((self.nx, self.ny))],
+                #              [np.zeros((self.ny, self.nx)), np.zeros((self.ny, self.ny))]
+                #              ]) >> 0,
+                cp.bmat([[S_xx - Y , S_xy],
+                         [S_xy.T, S_yy]
+                         ]) >> 0,
+                
+                S_xx >> 0,
+                S_yy >> 0,
+                #S >> 0,
+                cp.trace(S + Sigma - 2*V ) <= radi**2,
+                cp.bmat([[Sigma_root @ S @ Sigma_root, V],
+                        [V, np.eye(self.nx+self.ny)]
+                        ]) >> 0,
+                S >> sigma_min * np.eye(self.nx+self.ny)
+                ]
+        
+        prob = cp.Problem(obj, constraints)
+        
+        # print("HERE")
+        # print(Sigma.value)
+        # print(Sigma_root.value)
+        # print(radi.value)
+        
+        prob.solve(solver=cp.MOSEK)
+        
+        if prob.status in ["infeasible", "unbounded"]:
+            print(prob.status, 'False in DRKF!!!!!!!!!!!!!')
 
-#        sigma_wc = np.zeros((self.nx, self.nx))
-#        z_tilde_ = 0
-#        for t in range(self.max_iteration):
-#            P_ss = self.P_list[t+1,:,:]
-#            S_ss = self.S_list[t+1, :,:]
-#            sigma_wc_temp, p_post, U, V, z_tilde_temp, status = self.solve_sdp(sdp_prob, P_post, P_ss, S_ss, self.Sigma_hat)
-#            if status in ["infeasible", "unbounded", "unknown"]:
-#                print(status)
-#                return 0, 0, 0, status
-#            if np.max(sigma_wc_temp) >= 1e2:
-#                return 0, 0, 0, "infeasible"
-#
-#            P_ss_temp = self.A @ (P_ss_ - P_ss_ @ self.C.T @ np.linalg.solve(self.C @ P_ss_ @ self.C.T + self.M_hat, self.C @ P_ss_)) @ self.A.T + sigma_wc_temp
-#            
-#            if min(np.linalg.eigvals(self.C @ P_ss_temp @ self.C.T + self.M_hat)) <= 0:
-#                return np.inf
-#
-#            max_diff = 0
-#            for row in range(len(P_ss_)):
-#               for col in range(len(P_ss_[0])):
-#                   if abs(P_ss_[row, col] - P_ss_temp[row, col]) > max_diff:
-#                       max_diff = P_ss_[row, col] - P_ss_temp[row, col]
-#            max_diff_sigma = 0
-#            for row in range(len(sigma_wc)):
-#                for col in range(len(sigma_wc[0])):
-#                   if abs(sigma_wc[row, col] - sigma_wc_temp[row, col]) > max_diff_sigma:
-#                       max_diff_sigma = sigma_wc[row, col] - sigma_wc_temp[row, col]
-#            max_diff_tilde = z_tilde_ - z_tilde_temp
-#            print('KF it: {}, Sigma: {}, z_tilde: {}, P_bar: {}'.format(t, max_diff_sigma, max_diff_tilde, max_diff))
-#            
-#            
-#            P_ss_ = P_ss_temp
-#            z_tilde_ = z_tilde_temp
-#            sigma_wc = sigma_wc_temp
-#            self.sigma_wc_all[t,:,:] = sigma_wc
-#            self.z_tilde_all[t,:] = z_tilde_
-#            P_post = P_ss_ - P_ss_ @ self.C.T @ np.linalg.solve(self.C @ P_ss_ @ self.C.T + self.M_hat, self.C @ P_ss_)
-#            
-#            
-#            if np.max([abs(max_diff),abs(max_diff_sigma)]) < self.error_bound:
-#                if np.linalg.matrix_rank(control.ctrb(self.A, scipy.linalg.sqrtm(sigma_wc))) < self.nx:
-#                    print('(A, sqrt(Sigma)) is not controllable!!!!!!')
-#                    status = "infeasible"
-#                return P_post, sigma_wc, z_tilde_, status
-#        print("Minimax Riccati iteration did not converge")
-#        P_post = P_ss - P_ss @ self.C.T @ np.linalg.solve(self.C @ P_ss @ self.C.T + self.M_hat, self.C @ P_ss)
-        return P_post_, sigma_wc_1, z_tilde__, stat_
-
-
+        S_xx_opt = S_xx.value
+        S_xy_opt = S_xy.value
+        S_yy_opt = S_yy.value
+        S_opt = S.value
+        return S_opt, S_xx_opt, S_xy_opt, S_yy_opt    
+    
+    def DR_kalman_filter(self, x, y, mu_w = None, u = None):
+        if u is None:
+            mu_x = x
+            mu_y = self.C @ x
+        else:
+            mu_x =  self.A @ x + self.B @ u + mu_w
+            mu_y = self.C @ mu_x
+        
+        x_new = self.S_xy_opt @ np.linalg.inv(self.S_yy_opt) @ (y - mu_y) + mu_x        
+        
+        return x_new
+        
+    
     def riccati(self, Phi, P, S, r, z, Sigma_hat, mu_hat, lambda_, t):
         #Riccati equation corresponding to the Theorem 1
 
@@ -419,7 +426,7 @@ class inf_DRKF_WDRC: # TODO NOT IMPLEMENTED YET!!!!!!!!!
         H = np.linalg.inv(lambda_* np.eye(self.nx)  - P) @ P @ (self.A + self.B @ K)
         g = lambda_**2 * np.linalg.inv(lambda_*np.eye(self.nx) - P - S) @ Sigma_hat @ np.linalg.inv(lambda_*np.eye(self.nx) - P - S)
         return P_, S_, r_, z_, K, L, H, h, g
-
+    
     def get_obs(self, x, v):
         #Get new noisy observation
         obs = self.C @ x + v
@@ -468,11 +475,17 @@ class inf_DRKF_WDRC: # TODO NOT IMPLEMENTED YET!!!!!!!!!
                 self.P_list[t+1:,:,:] = P
                 self.S_list[t+1:,:,:] = S
                 P_post, sigma_wc, z_tilde_, status = self.KF_riccati(self.x0_cov, self.P_ss, self.S_ss, self.lambda_)
-                self.P_post = P_post
+                self.X_pred = P_post
+                S_opt, S_xx_opt, S_xy_opt, S_yy_opt = self.solve_DR_sdp()
+                self.S_opt = S_opt
+                self.S_xx_opt = S_xx_opt
+                self.S_xy_opt = S_xy_opt
+                self.S_yy_opt = S_yy_opt
                 self.sigma_wc = sigma_wc
                 self.z_tilde = z_tilde_
                 
                 return
+            
         print("Minimax Riccati iteration did not converge")
         self.P_ss = P
         self.S_ss = S
@@ -482,9 +495,16 @@ class inf_DRKF_WDRC: # TODO NOT IMPLEMENTED YET!!!!!!!!!
         self.h_ss = None
         self.H_ss = None
         self.g_ss = None
+        self.S_opt = None
+        self.S_xx_opt = None
+        self.S_xy_opt = None
+        self.S_yy_opy = None
         self.flag = False
+        
 
-    def forward(self, use_wc=False):
+
+
+    def forward(self):
         #Apply the controller forward in time.
         start = time.time()
         x = np.zeros((self.T+1, self.nx, 1))
@@ -495,44 +515,45 @@ class inf_DRKF_WDRC: # TODO NOT IMPLEMENTED YET!!!!!!!!!
         x_cov = np.zeros((self.T+1, self.nx, self.nx))
         J = np.zeros(self.T+1)
         mu_wc = np.zeros((self.T, self.nx, 1))
-        if self.lambda_ <= np.max(self.P_ss):
-            print("t={}: False!".format(0))
+        sigma_wc = np.zeros((self.T, self.nx, self.nx))
 
-        #Initial state
+        #---system----
         if self.dist=="normal":
             x[0] = self.normal(self.x0_mean, self.x0_cov)
-            true_v = self.normal(np.zeros((self.ny,1)), self.M) #observation noise
         elif self.dist=="uniform":
             x[0] = self.uniform(self.x0_max, self.x0_min)
-            true_v = self.uniform(self.v_max, self.v_min) #observation noise
-#            true_v = self.normal(np.zeros((self.ny,1)), self.M) #observation noise
-
-        elif self.dist=="multimodal":
-            x[0] = self.normal(self.x0_mean, self.x0_cov)
+        elif self.dist=="quadratic":
+            x[0] = self.quadratic(self.x0_max, self.x0_min)
+        #---noise----
+        if self.noise_dist=="normal":
             true_v = self.normal(np.zeros((self.ny,1)), self.M) #observation noise
+        elif self.noise_dist=="uniform":
+            true_v = self.uniform(self.v_max, self.v_min) #observation noise
+        elif self.noise_dist=="quadratic":
+            true_v = self.quadratic(self.v_max, self.v_min) #observation noise
             
         y[0] = self.get_obs(x[0], true_v) #initial observation
-        x_mean[0] = self.kalman_filter(self.x0_mean, y[0], self.mu_hat, 0) #initial state estimation
-        x_cov[0] = self.P_post
-
+        #x_mean[0] = self.kalman_filter(self.x0_mean, y[0], self.mu_hat, 0) #initial state estimation
+        x_mean[0] = self.DR_kalman_filter(self.x0_mean, y[0])
+        x_cov[0] = self.X_pred # no use!
+        
         for t in range(self.T):
             mu_wc[t] = self.H_ss @ x_mean[t] + self.h_ss #worst-case mean
-
+            
             #disturbance sampling
             if self.dist=="normal":
-                if use_wc:
-                    true_w = self.normal(mu_wc[t], self.g_ss)
-                else:
-                    true_w = self.normal(self.mu_w, self.Sigma_w)
-                    true_v = self.normal(np.zeros((self.ny,1)), self.M) #observation noise
-
+                true_w = self.normal(self.mu_w, self.Sigma_w)
             elif self.dist=="uniform":
                 true_w = self.uniform(self.w_max, self.w_min)
-                true_v = self.uniform(self.v_max, self.v_min) #observation noise
-
-            elif self.dist=="multimodal":
-                true_w = self.multimodal(self.mu_w, self.Sigma_w)
+            elif self.dist=="quadratic":
+                true_w = self.quadratic(self.w_max, self.w_min)
+            #noise sampling
+            if self.noise_dist=="normal":
                 true_v = self.normal(np.zeros((self.ny,1)), self.M) #observation noise
+            elif self.noise_dist=="uniform":
+                true_v = self.uniform(self.v_max, self.v_min) #observation noise
+            elif self.noise_dist=="quadratic":
+                true_v = self.quadratic(self.v_max, self.v_min) #observation noise
 
             #Apply the control input to the system
             u[t] = self.K_ss @ x_mean[t] + self.L_ss
@@ -540,34 +561,24 @@ class inf_DRKF_WDRC: # TODO NOT IMPLEMENTED YET!!!!!!!!!
             y[t+1] = self.get_obs(x[t+1], true_v)
 
             #Update the state estimation (using the worst-case mean and covariance)
-            x_mean[t+1] = self.kalman_filter(x_mean[t], y[t+1], mu_wc[t], t+1)
-            x_cov[t+1] = self.P_post
+            #x_mean[t+1] = self.kalman_filter(x_mean[t], y[t+1], mu_wc[t], t+1)
+            x_mean[t+1] = self.DR_kalman_filter(x_mean[t], y[t+1], mu_wc[t], u[t])
+            x_cov[t+1] = self.X_pred # no use!
 
-            #Compute the total cost
+        #Compute the total cost
         J[self.T] = x[self.T].T @ self.Q @ x[self.T]
         for t in range(self.T-1, -1, -1):
             J[t] = J[t+1] + x[t].T @ self.Q @ x[t] + u[t].T @ self.R @ u[t]
 
+        
+        #print("DRKF Optimal penalty (lambda_star):", self.lambda_)
+        
         end = time.time()
         time_ = end-start
-        
-#        err_bound_max = x[-1] + 0.03*np.abs(x[-1])
-#        err_bound_min = x[-1] - 0.03*np.abs(x[-1])
-#        
-#        SettlingTime = np.zeros(self.nx)
-#        for j in range(self.nx):
-#            for i in reversed(range(self.T)):
-#                if((x[i,j] <= err_bound_min[j]) | (x[i,j] >= err_bound_max[j])):
-#                    SettlingTime[j] = (i+1)*0.1
-#                    break
-                
         return {'comp_time': time_,
                 'state_traj': x,
                 'output_traj': y,
                 'control_traj': u,
-                'cost': J,
-                'mu_wc': mu_wc,
-                'Sigma_wc': self.sigma_wc.copy(),
-                'lambda': self.lambda_}
+                'cost': J}
 
 

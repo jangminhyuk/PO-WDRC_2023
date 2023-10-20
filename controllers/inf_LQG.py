@@ -3,12 +3,11 @@
 
 import numpy as np
 import time
-import scipy 
-import control
 
 class inf_LQG:
-    def __init__(self, T, dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat):
+    def __init__(self, T, dist, noise_dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat):
         self.dist = dist
+        self.noise_dist = noise_dist
         self.T = T
         self.A, self.B, self.C, self.Q, self.Qf, self.R, self.M = system_data
         self.M_hat = M_hat
@@ -19,44 +18,33 @@ class inf_LQG:
         self.x0_cov = x0_cov
         self.mu_hat = mu_hat
         self.Sigma_hat = Sigma_hat
-#        self.mu_hat = 0*np.ones((self.nx, 1))
-#        self.Sigma_hat= 0.01*np.eye(self.nx)
         self.mu_w = mu_w
         self.Sigma_w = Sigma_w
-        if self.dist=="uniform":
+        if self.dist=="uniform" or self.dist=="quadratic":
             self.x0_max = x0_max
             self.x0_min = x0_min
             self.w_max = w_max
             self.w_min = w_min
+
+        if self.noise_dist =="uniform" or self.noise_dist =="quadratic":
             self.v_max = v_max
             self.v_min = v_min
-
 
         self.error_bound = 1e-6
         self.max_iteration = 1000
 
         self.J = 0
         self.flag = True
-        ctrb = control.ctrb(self.A, self.B)
-        obs = control.obsv(self.A, scipy.linalg.sqrtm(self.Q))
-        obs_ = control.obsv(self.A, self.C)
-        ctrb_ = control.ctrb(self.A, scipy.linalg.sqrtm(self.Sigma_hat))
-#        if np.linalg.matrix_rank(ctrb) == self.nx:
-#            print('Rank is {} - Controllable'.format(self.nx))
-#        else:
-#            print('Rank is {} - Not Controllable'.format(np.linalg.matrix_rank(ctrb)))
-#        if np.linalg.matrix_rank(obs) == self.nx:
-#            print('Rank is {} - Observable'.format(self.nx))
-#        else:
-#            print('Rank is {} - Not Observable'.format(np.linalg.matrix_rank(obs)))
-#        if np.linalg.matrix_rank(ctrb_) == self.nx:
-#            print('Rank is {} - Controllable'.format(self.nx))
-#        else:
-#            print('Rank is {} - Not Controllable'.format(np.linalg.matrix_rank(ctrb_)))
-#        if np.linalg.matrix_rank(obs_) == self.nx:
-#            print('Rank is {} - Observable'.format(self.nx))
-#        else:
-#            print('Rank is {} - Not Observable'.format(np.linalg.matrix_rank(obs_)))
+        
+        #Initial state
+            
+        self.J = np.zeros(self.T+1)
+        self.P = np.zeros((self.T+1, self.nx, self.nx))
+        self.S = np.zeros((self.T+1, self.nx, self.nx))
+        self.r = np.zeros((self.T+1, self.nx, 1))
+        self.z = np.zeros(self.T+1)
+        self.K = np.zeros(( self.T, self.nu, self.nx))
+        self.L = np.zeros(( self.T, self.nu, 1))
 
 
     def uniform(self, a, b, N=1):
@@ -66,38 +54,40 @@ class inf_LQG:
 
     def normal(self, mu, Sigma, N=1):
         n = mu.shape[0]
-#        w = np.random.normal(size=(n,N)).T
-        w = scipy.stats.norm.ppf(np.random.rand(n,N)).T
-        
+        w = np.random.normal(size=(N,n))
         if (Sigma == 0).all():
             x = mu
         else:
             x = mu + np.linalg.cholesky(Sigma) @ w.T
-#        x = np.random.multivariate_normal(mu[:,0], Sigma, size=N).T
+        return x
+    
+    def quad_inverse(self, x, b, a):
+        row = x.shape[0]
+        col = x.shape[1]
+        for i in range(row):
+            for j in range(col):
+                beta = (a[j]+b[j])/2.0
+                alpha = 12.0/((b[j]-a[j])**3)
+                tmp = 3*x[i][j]/alpha - (beta - a[j])**3
+                if 0<=tmp:
+                    x[i][j] = beta + ( tmp)**(1./3.)
+                else:
+                    x[i][j] = beta -(-tmp)**(1./3.)
         return x
 
-    def multimodal(self, mu, Sigma, N=1):
-        modes = 2
-        n = mu[0].shape[0]
-        x = np.zeros((n,N,modes))
-        for i in range(modes):
-            w = np.random.normal(size=(N,n))
-            if (Sigma[i] == 0).all():
-                x[:,:,i] = mu[i]
-            else:
-                x[:,:,i] = mu[i] + np.linalg.cholesky(Sigma[i]) @ w.T
-
-        #w = np.random.choice([0, 1], size=(n,N))
-        w = 0.5
-        y = x[:,:,0]*w + x[:,:,1]*(1-w)
-        return y
+    # quadratic U-shape distrubituon in [wmin , wmax]
+    def quadratic(self, wmax, wmin, N=1):
+        n = wmin.shape[0]
+        x = np.random.rand(N, n)
+        x = self.quad_inverse(x, wmax, wmin)
+        return x.T
 
     def kalman_filter(self, x, y, mu_w, t):
         if t==0:
-            x_new = x + self.P_post @ self.C.T @ np.linalg.inv(self.M_hat) @ (y - self.C @ x)
+            x_new = x + self.X_pred @ self.C.T @ np.linalg.inv(self.M_hat) @ (y - self.C @ x)
         else:
             #Performs state estimation based on the current state estimate, control input and new observation
-            x_new = (self.A + self.B @ self.K_ss) @ x + self.B @ self.L_ss + mu_w + self.P_post @ self.C.T @ np.linalg.inv(self.M_hat) @ (y - self.C @ (self.A + self.B @ self.K_ss) @ x - self.C @ self.B @ self.L_ss)
+            x_new = (self.A + self.B @ self.K_ss) @ x + self.B @ self.L_ss + mu_w + self.X_pred @ self.C.T @ np.linalg.inv(self.M_hat) @ (y - self.C @ (self.A + self.B @ self.K_ss) @ x - self.C @ self.B @ self.L_ss)
         return x_new
 
     def KF_riccati(self, P_ss=None, P_w=None):
@@ -112,11 +102,12 @@ class inf_LQG:
             P_ss = P_ss_temp
             if max_diff < self.error_bound:
                 P_post = P_ss - P_ss @ self.C.T @ np.linalg.solve(self.C @ P_ss @ self.C.T + self.M_hat, self.C @ P_ss)
-                self.P_post = P_post
+                self.X_pred = P_post
                 return
         print("Minimax Riccati iteration did not converge")
         P_post = P_ss - P_ss @ self.C.T @ np.linalg.solve(self.C @ P_ss @ self.C.T + self.M_hat, self.C @ P_ss)
-        self.P_post = P_post
+        self.X_pred = P_post
+
 
     def riccati(self, Phi, P, S, r, z, Sigma_hat, mu_hat):
         #Riccati equation for standard LQG
@@ -178,12 +169,9 @@ class inf_LQG:
         self.r_ss = r
         self.K_ss = None
         self.L_ss = None
-
-
-
-    def forward(self, mu_wc=None, Sigma_wc=None):
+            
+    def forward(self):
         #Apply the controller forward in time.
-        
         start = time.time()
         x = np.zeros((self.T+1, self.nx, 1))
         y = np.zeros((self.T+1, self.ny, 1))
@@ -192,39 +180,39 @@ class inf_LQG:
         x_mean = np.zeros((self.T+1, self.nx, 1))
         x_cov = np.zeros((self.T+1, self.nx, self.nx))
         J = np.zeros(self.T+1)
-
-        #Initial state
+        #---system----
         if self.dist=="normal":
             x[0] = self.normal(self.x0_mean, self.x0_cov)
-            true_v = self.normal(np.zeros((self.ny,1)), self.M) #observation noise
         elif self.dist=="uniform":
             x[0] = self.uniform(self.x0_max, self.x0_min)
-            true_v = self.uniform(self.v_max, self.v_min) #observation noise
-#            true_v = self.normal(np.zeros((self.ny,1)), self.M) #observation noise
-        elif self.dist=="multimodal":
-            x[0] = self.normal(self.x0_mean, self.x0_cov)
+        elif self.dist=="quadratic":
+            x[0] = self.quadratic(self.x0_max, self.x0_min)
+        #---noise----
+        if self.noise_dist=="normal":
             true_v = self.normal(np.zeros((self.ny,1)), self.M) #observation noise
+        elif self.noise_dist=="uniform":
+            true_v = self.uniform(self.v_max, self.v_min) #observation noise
+        elif self.noise_dist=="quadratic":
+            true_v = self.quadratic(self.v_max, self.v_min) #observation noise
+            
         y[0] = self.get_obs(x[0], true_v) #initial observation
         x_mean[0] = self.kalman_filter(self.x0_mean, y[0], self.mu_hat, 0) #initial state estimation
-        x_cov[0] = self.P_post
-
+        x_cov[0] = self.X_pred
         for t in range(self.T):
             #disturbance sampling
             if self.dist=="normal":
-                if mu_wc is not None:
-                    true_w = self.normal(mu_wc[t], Sigma_wc)
-                else:
-                    true_w = self.normal(self.mu_w, self.Sigma_w)
-                true_v = self.normal(np.zeros((self.ny,1)), self.M) #observation noise
-
+                true_w = self.normal(self.mu_w, self.Sigma_w)
             elif self.dist=="uniform":
                 true_w = self.uniform(self.w_max, self.w_min)
-                true_v = self.uniform(self.v_max, self.v_min) #observation noise
-
-            elif self.dist=="multimodal":
-                true_w = self.multimodal(self.mu_w, self.Sigma_w)
+            elif self.dist=="quadratic":
+                true_w = self.quadratic(self.w_max, self.w_min)
+            #noise sampling
+            if self.noise_dist=="normal":
                 true_v = self.normal(np.zeros((self.ny,1)), self.M) #observation noise
-
+            elif self.noise_dist=="uniform":
+                true_v = self.uniform(self.v_max, self.v_min) #observation noise
+            elif self.noise_dist=="quadratic":
+                true_v = self.quadratic(self.v_max, self.v_min) #observation noise
             #Apply the control input to the system
             u[t] = self.K_ss @ x_mean[t] + self.L_ss
             x[t+1] = self.A @ x[t] + self.B @ u[t] + true_w
@@ -232,26 +220,15 @@ class inf_LQG:
 
             #Update the state estimation (using the nominal mean and covariance)
             x_mean[t+1] = self.kalman_filter(x_mean[t], y[t+1], self.mu_hat, t+1)
-            x_cov[t+1] = self.P_post
-
+            x_cov[t+1] = self.X_pred
+            
         #Compute the total cost
-        J[self.T] = x[self.T].T @ self.Q @ x[self.T]
+        J[self.T] = x[self.T].T @ self.Qf @ x[self.T]
         for t in range(self.T-1, -1, -1):
             J[t] = J[t+1] + x[t].T @ self.Q @ x[t] + u[t].T @ self.R @ u[t]
 
         end = time.time()
         time_ = end-start
-        
-#        err_bound_max = x[-1] + 0.03*np.abs(x[-1])
-#        err_bound_min = x[-1] - 0.03*np.abs(x[-1])
-#        
-#        SettlingTime = np.zeros(self.nx)
-#        for j in range(self.nx):
-#            for i in reversed(range(self.T)):
-#                if((x[i,j] <= err_bound_min[j]) | (x[i,j] >= err_bound_max[j])):
-#                    SettlingTime[j] = (i+1)*0.1
-#                    break
-            
         return {'comp_time': time_,
                 'state_traj': x,
                 'output_traj': y,

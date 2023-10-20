@@ -34,12 +34,13 @@ class WDRC:
             self.v_max = v_max
             self.v_min = v_min
         #Initial state
-        if self.dist=="normal":
-            self.lambda_ = 785
-        elif self.dist=="uniform":
-            self.lambda_ = 780.2396483109309
-        elif self.dist=="quadratic":
-            self.lambda_ = 780
+        # if self.dist=="normal":
+        #     self.lambda_ = 780
+        # elif self.dist=="uniform":
+        #     self.lambda_ = 780.2396483109309
+        # elif self.dist=="quadratic":
+        #     self.lambda_ = 780
+        self.lambda_ = 1400
         
         if app_lambda>0:
             self.lambda_ = app_lambda #use for lambda modification in application
@@ -72,7 +73,7 @@ class WDRC:
         #print(output.message)
         #optimal_penalty = output.x[0]
         optimal_penalty = 2* self.infimum_penalty
-        print("DRKF Optimal penalty (lambda_star):", optimal_penalty)
+        print("WDRC Optimal penalty (lambda_star):", optimal_penalty)
         return optimal_penalty
 
     def objective(self, penalty):
@@ -187,15 +188,19 @@ class WDRC:
         
             P_var = cp.Parameter((self.nx,self.nx))
             S_var = cp.Parameter((self.nx,self.nx))
-            Sigma_hat_12_var = cp.Parameter((self.nx,self.nx))
+            #Sigma_hat_12_var = cp.Parameter((self.nx,self.nx))
+            Sigma_hat = cp.Parameter((self.nx,self.nx))
             X_bar = cp.Parameter((self.nx,self.nx))
             
             obj = cp.Maximize(cp.trace((P_var - lambda_*np.eye(self.nx)) @ Sigma) + 2*lambda_*cp.trace(Y) + cp.trace(S_var @ X))
             
             constraints = [
-                    cp.bmat([[Sigma_hat_12_var @ Sigma @ Sigma_hat_12_var, Y],
-                             [Y, np.eye(self.nx)]
-                             ]) >> 0,
+                    # cp.bmat([[Sigma_hat_12_var @ Sigma @ Sigma_hat_12_var, Y],
+                    #          [Y, np.eye(self.nx)]
+                    #          ]) >> 0,
+                    cp.bmat([[Sigma, Y],
+                         [Y, Sigma_hat]
+                         ]) >> 0,
                     Sigma >> 0,
                     X_pred >> 0,
                     cp.bmat([[X_pred - X, X_pred @ self.C.T],
@@ -215,8 +220,8 @@ class WDRC:
         params[0].value = P
         params[1].value = S
 #        params[2].value = np.linalg.cholesky(Sigma_hat)
-        #params[2].value = np.real(scipy.linalg.sqrtm(Sigma_hat + 1e-5*np.eye(self.nx)))
-        params[2].value = np.real(scipy.linalg.sqrtm(Sigma_hat + 1e-4*np.eye(self.nx)))
+        #params[2].value = np.real(scipy.linalg.sqrtm(Sigma_hat))
+        params[2].value = Sigma_hat
         params[3].value = x_cov
         
         sdp_prob.solve(solver=cp.MOSEK)
@@ -255,7 +260,9 @@ class WDRC:
 
 #        temp = np.linalg.solve(self.C @ P_ @ self.C.T + self.M, self.C @ P_)
 #        P_new = P_ - P_ @ self.C.T @ temp
-        x_new = x_ + P @ self.C.T @ np.linalg.inv(M_hat) @ resid
+        #x_new = x_ + P @ self.C.T @ np.linalg.inv(M_hat) @ resid
+        temp = np.linalg.solve(M_hat, resid)
+        x_new = x_ + P @ self.C.T @ temp
         return x_new
 
     def riccati(self, Phi, P, S, r, z, Sigma_hat, mu_hat, lambda_, t):
@@ -306,10 +313,12 @@ class WDRC:
             print("WDRC Offline step : ",t,"/",self.T)
             sdp_prob = self.gen_sdp(self.lambda_, self.M_hat[t])
             sigma_wc[t], _, status = self.solve_sdp(sdp_prob, self.x_cov[t], self.P[t+1], self.S[t+1], self.Sigma_hat[t])
+            print("sigma_wc[t] norm : ", np.linalg.norm(sigma_wc[t]))
             if status in ["infeasible", "unbounded"]:
                 print(status, 'False!!!!!!!!!!!!!')
             self.x_cov[t+1] = self.kalman_filter_cov(self.M_hat[t], self.x_cov[t], sigma_wc[t])
-
+            
+            #print("x_cov[] norm : ", np.linalg.norm(self.x_cov[t+1]))
 
 #            if np.min(self.C @ (self.A @ x_cov[t] @ self.A + sigma_wc[t]) @ self.C.T + self.M) < 0:
 #                print('False!!!!!!!!!!!!!')

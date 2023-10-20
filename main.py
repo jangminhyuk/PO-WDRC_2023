@@ -6,11 +6,14 @@ import argparse
 from controllers.LQG import LQG
 from controllers.WDRC import WDRC
 from controllers.DRKF_WDRC import DRKF_WDRC
+from controllers.DRKF_WDRC_combined import DRKF_WDRC_0
 from controllers.MMSE_WDRC import MMSE_WDRC
 from controllers.MMSE_WDRC_onlyM import MMSE_WDRC_2
 from controllers.inf_LQG import inf_LQG
 from controllers.inf_WDRC import inf_WDRC
 from controllers.inf_DRKF_WDRC import inf_DRKF_WDRC
+from controllers.inf_MMSE_WDRC_onlyM import inf_MMSE_WDRC
+from controllers.inf_MMSE_WDRC_both import inf_MMSE_WDRC_both
 from controllers.inf_H_infty import inf_H_infty
 
 from plot import summarize
@@ -149,8 +152,8 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
     Qf = np.load("./inputs/Q_f.npy")    
     R = np.load("./inputs/R.npy")
     
-    #noisedist = [noise_dist1]
-    noisedist = ["normal", "uniform","quadratic"]
+    noisedist = [noise_dist1]
+    #noisedist = ["normal", "uniform","quadratic"]
     for noise_dist in noisedist:
         for num_noise in num_noise_list:
             print("disturbance : ", dist, "/ noise : ", noise_dist, "/ num_noise : ", num_noise)
@@ -161,7 +164,7 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
             print("--------------------------------------------")
             print("number of noise sample : ", num_noise)
             print("number of disturbance sample : ", num_samples)
-            theta = 0.5
+            theta = 0.05
             #Path for saving the results
             if infinite:
                 if sim_type == "multiple":
@@ -232,7 +235,7 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
                 x0_cov = 3.0/20.0 *np.diag((x0_max - x0_min)**2)               
             elif dist == "multimodal":
                 M = 0.2*np.eye(ny) #observation noise covariance
-                theta = 0.8 #Wasserstein ball radius
+                #theta = 0.8 #Wasserstein ball radius
                 #disturbance distribution parameters
                 w_max = None
                 w_min = None
@@ -267,6 +270,7 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
                 v_max = 0.4*np.ones(ny)
                 mu_v = (0.5*(v_max + v_min))[..., np.newaxis]
                 M = 3.0/20.0 *np.diag((v_max-v_min)**2)
+                theta = 0.1
                 
                 
             #-------Estimate the nominal distribution-------
@@ -286,16 +290,19 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
                 if infinite:
                     mu_hat, Sigma_hat = gen_sample_dist_inf(dist, num_samples, mu_w=mu_w, Sigma_w=Sigma_w, w_max=w_max, w_min=w_min)
     #                if dist=="normal":
+                    #Sigma_hat = Sigma_hat+ 1e-6*np.eye(nx)
                     mu_hat = 0*np.ones((nx, 1))
-                    _, M_hat = gen_sample_dist(noise_dist, T+1, num_noise, mu_w=mu_v, Sigma_w=M, w_max=v_max, w_min=v_min) # generate M hat!
+                    _, M_hat = gen_sample_dist_inf(noise_dist, num_noise, mu_w=mu_v, Sigma_w=M, w_max=v_max, w_min=v_min) # generate M hat!
                 else:
                     mu_hat, Sigma_hat = gen_sample_dist(dist, T+1, num_samples, mu_w=mu_w, Sigma_w=Sigma_w, w_max=w_max, w_min=w_min)
     #                if dist=="normal":
                     mu_hat = 0*np.ones((T, nx, 1))
                     _, M_hat = gen_sample_dist(noise_dist, T+1, num_noise, mu_w=mu_v, Sigma_w=M, w_max=v_max, w_min=v_min) # generate M hat!
             
-            M_hat = M_hat + 1e-6*np.eye(ny)
-
+            M_hat = M_hat + 1e-10*np.eye(ny) # to prevent numerical error on inverse
+            #Sigma_hat = Sigma_hat + 1e-10*np.eye(nx) # to prevent numerical error
+            #print(M_hat[0])
+            print(np.linalg.matrix_rank(M_hat[0]))
             #-------Create a random system-------
             system_data = (A, B, C, Q, Qf, R, M)
         #    print('Sys Data:', system_data)
@@ -343,21 +350,23 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
                     
             else:
                 if infinite:
-                        wdrc = inf_WDRC(lambda_, theta, T, dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat[0])
-                        drkf_wdrc = inf_DRKF_WDRC(lambda_, theta, T, dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat[0])
-                        lqg = inf_LQG(T, dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat[0])
+                        wdrc = inf_WDRC(theta, T, dist, noise_dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat, -1)
+                        drkf_wdrc = inf_DRKF_WDRC(theta, T, dist, noise_dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat, -1)
+                        #drkf_wdrc = inf_DRKF_WDRC(lambda_, theta, T, dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat[0])
+                        mmse_wdrc = inf_MMSE_WDRC_both(theta, T, dist, noise_dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat, -1)
+                        lqg = inf_LQG(T, dist, noise_dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat)
                         
                 else: # HERE!!
                     #DRKF method from NeurIPS Distributionally Robust Kalman Filtering
-                    drkf_wdrc = DRKF_WDRC(theta, T, dist, noise_dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat, -1)
+                    drkf_wdrc = DRKF_WDRC_0(theta, T, dist, noise_dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat, -1)
                     #MMSE estimation problem method(MMSE_WDRC: directly from Adversial Analytics(ambiguity for both x and v) /MMSE_WDRC_2: modified to handle the ambiguity only from observation noise v) 
                     mmse_wdrc = MMSE_WDRC(theta, T, dist, noise_dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat, num_noise_samples, -1)
                     wdrc = WDRC(theta, T, dist, noise_dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat, -1)
                     lqg = LQG(T, dist, noise_dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat)
-
-                #mmse_wdrc.backward()
+                
                 drkf_wdrc.backward()
-                wdrc.backward()       
+                wdrc.backward()  
+                #mmse_wdrc.backward()
                 lqg.backward()
                 
             if h_inf:
@@ -625,7 +634,7 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
     #                        summarize([output_lqg_list[i]], [output_wdrc_list[i]], [output_h_infty_list[i]], dist, path, i, plot_results, h_inf)
     #                        print('---------------------')
     #             else:
-                print("dist : ", dist, "/ num_samples : ", num_samples, "/ num_noise_samples : ", num_noise, "/seed : ", seed)
+                print("dist : ", dist,"/ noise dist : ", noise_dist, "/ num_samples : ", num_samples, "/ num_noise_samples : ", num_noise, "/seed : ", seed)
                 
                 if sim_type == "multiple":
                     summarize(output_lqg_list, output_wdrc_list, output_drkf_wdrc_list , output_mmse_wdrc_list, dist, noise_dist, path, num_sim, plot_results, True, True, False, application)
@@ -637,7 +646,10 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
         
         # after running noise_samples lists!
         if noise_plot_results:
-            path = "./results/{}_{}/finite/multiple/num_noise_plot/".format(dist, noise_dist)
+            if infinite:
+                path = "./results/{}_{}/infinite/multiple/num_noise_plot/".format(dist, noise_dist)
+            else:
+                path = "./results/{}_{}/finite/multiple/num_noise_plot/".format(dist, noise_dist)
             if not os.path.exists(path):
                 os.makedirs(path)
                 

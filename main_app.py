@@ -7,6 +7,7 @@ import argparse
 from controllers.LQG import LQG
 from controllers.WDRC import WDRC
 from controllers.DRKF_WDRC import DRKF_WDRC
+from controllers.DRKF_WDRC_combined import DRKF_WDRC_0
 from controllers.MMSE_WDRC import MMSE_WDRC
 from controllers.MMSE_WDRC_onlyM import MMSE_WDRC_2
 from controllers.inf_LQG import inf_LQG
@@ -165,6 +166,7 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
     seed = 100 # any value
     if noise_plot_results: # if you need to draw ploy_J
         num_noise_list = [5, 10, 15, 20, 25, 30]
+        #num_noise_list =[3, 5, 7, 10, 15, 20]
     else:
         num_noise_list = [num_noise_samples]
     
@@ -374,7 +376,7 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
                         
                 else:
                     #DRKF method from NeurIPS Distributionally Robust Kalman Filtering
-                    drkf_wdrc = DRKF_WDRC(theta, T, dist, noise_dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat, app_lambda)
+                    drkf_wdrc = DRKF_WDRC_0(theta, T, dist, noise_dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat, app_lambda)
                     #MMSE estimation problem method(MMSE_WDRC: directly from Adversial Analytics(ambiguity for both x and v) /MMSE_WDRC_2: modified to handle the ambiguity only from observation noise v) 
                     mmse_wdrc = MMSE_WDRC(theta, T, dist, noise_dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat, num_noise_samples , app_lambda)
                     wdrc = WDRC(theta, T, dist, noise_dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat , app_lambda)

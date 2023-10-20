@@ -37,12 +37,13 @@ class DRKF_WDRC:
             
         self.theta = theta
         #Initial state
-        if self.dist=="normal":
-            self.lambda_ = 785
-        elif self.dist=="uniform":
-            self.lambda_ = 780.2396483109309
-        elif self.dist=="quadratic":
-            self.lambda_ = 780
+        # if self.dist=="normal":
+        #     self.lambda_ = 785
+        # elif self.dist=="uniform":
+        #     self.lambda_ = 780.2396483109309
+        # elif self.dist=="quadratic":
+        #     self.lambda_ = 780
+        self.lambda_ = 1400
         
         if app_lambda>0:
             self.lambda_ = app_lambda #use for lambda modification in application
@@ -219,7 +220,7 @@ class DRKF_WDRC:
         params[0].value = P
         params[1].value = S
 #        params[2].value = np.linalg.cholesky(Sigma_hat)
-        params[2].value = np.real(scipy.linalg.sqrtm(Sigma_hat + 1e-3*np.eye(self.nx)))
+        params[2].value = np.real(scipy.linalg.sqrtm(Sigma_hat))
         params[3].value = x_cov
         
         sdp_prob.solve(solver=cp.MOSEK)
@@ -364,8 +365,10 @@ class DRKF_WDRC:
             X_cov_ = self.A @ X_cov @ self.A.T + Cov_w
             Y_cov_ = self.C @ (self.A @ X_cov @ self.A.T + Cov_w) @ self.C.T + M_hat
         
-           
-        
+        #need to be erased!!
+        # X_cov_ = X_cov
+        # Y_cov_ = self.C @ X_cov @ self.C.T + M_hat
+                
         Sigma_z = np.bmat([[X_cov_, X_cov_ @ self.C.T ],
                            [ self.C @ X_cov_ ,Y_cov_ ] 
                            ])
@@ -437,15 +440,17 @@ class DRKF_WDRC:
             print("DRKF WDRC Offline step : ",t,"/",self.T)
             sdp_prob = self.gen_sdp(self.lambda_, self.M_hat[t])
             sigma_wc[t], X_wc, status = self.solve_sdp(sdp_prob, self.x_cov[t], self.P[t+1], self.S[t+1], self.Sigma_hat[t])
+            print("sigma_wc[t] norm : ", np.linalg.norm(sigma_wc[t]))
             if status in ["infeasible", "unbounded"]:
                 print(status, 'False!!!!!!!!!!!!!')
             #self.x_cov[t+1], self.S_xx[t+1], self.S_xy[t+1], self.S_yy[t+1] = self.DR_kalman_filter_cov(self.M_hat[t], self.x_cov[t], self.Sigma_hat[t]) #choice 1
-            self.x_cov[t+1], self.S_opt[t+1], self.S_xx[t+1], self.S_xy[t+1], self.S_yy[t+1] = self.DR_kalman_filter_cov(self.M_hat[t], self.x_cov[t], sigma_wc[t]) #choice 2
-            #self.x_cov[t+1], self.S_xx[t+1], self.S_xy[t+1], self.S_yy[t+1] = self.DR_kalman_filter_cov(self.M_hat[t], X_wc, sigma_wc[t]) #choice 3 is the best option (checked by experiment)
+            self.x_cov[t+1], self.S_opt[t+1], self.S_xx[t+1], self.S_xy[t+1], self.S_yy[t+1] = self.DR_kalman_filter_cov(self.M_hat[t], self.x_cov[t], sigma_wc[t]) #choice 2 !!!
+            #self.x_cov[t+1], self.S_opt[t+1], self.S_xx[t+1], self.S_xy[t+1], self.S_yy[t+1] = self.DR_kalman_filter_cov(self.M_hat[t], X_wc, sigma_wc[t]) #choice 3
             
-            for i in range(0): # 0 now!!!
+            for i in range(0): # 0 now!!! no repeat!!!
                 self.x_cov[t+1], self.S_opt[t+1], self.S_xx[t+1], self.S_xy[t+1], self.S_yy[t+1] = self.DR_kalman_filter_cov_repeat(self.S_opt[t+1]) #choice 4 !! repeat using S[t+1]
-                
+            
+            #print("x_cov[] norm : ", np.linalg.norm(self.x_cov[t+1]))
             
 #            if np.min(self.C @ (self.A @ x_cov[t] @ self.A + sigma_wc[t]) @ self.C.T + self.M) < 0:
 #                print('False!!!!!!!!!!!!!')
