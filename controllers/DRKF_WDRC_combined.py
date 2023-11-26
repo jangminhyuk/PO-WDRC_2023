@@ -48,7 +48,7 @@ class DRKF_WDRC_0:
         if app_lambda>0:
             self.lambda_ = app_lambda #use for lambda modification in application
             
-        print("DRKF-WDRC")
+        print("DRKF-WDRC combined")
         #self.lambda_ = self.optimize_penalty() #optimize penalty parameter for theta
 #        self.lambda_ = 3.5
         #self.binarysearch_infimum_penalty_finite()
@@ -300,8 +300,8 @@ class DRKF_WDRC_0:
         
         #constraints
         constraints = [
-                cp.bmat([[Sigma_wc, Y],
-                         [Y, Sigma_w]
+                cp.bmat([[Sigma_w, Y],
+                         [Y, Sigma_wc]
                          ]) >> 0,
                 # cp.bmat([[Sigma_hat_12_var @ Sigma_wc @ Sigma_hat_12_var, Y],
                 #         [Y, np.eye(self.nx)]
@@ -321,8 +321,8 @@ class DRKF_WDRC_0:
                 S_yy >> 0,
                 S >> 0,
                 cp.trace(S + Sigma_z - 2*N ) <= radi**2,
-                cp.bmat([[S, N],
-                         [N, Sigma_z]
+                cp.bmat([[Sigma_z, N],
+                         [N, S]
                          ]) >> 0,
                 N>>0
                 ]

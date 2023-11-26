@@ -133,7 +133,7 @@ def save_data(path, data):
 def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T, method, plot_results, noise_plot_results, infinite, out_of_sample, wc, h_inf):
     application = "Nothing"
     lambda_ = 1000
-    seed = 100 # any value
+    seed = 200 # any value
     if noise_plot_results: # if you need to draw ploy_J
         num_noise_list = [5, 10, 15, 20, 25, 30]
     else:
@@ -152,8 +152,8 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
     Qf = np.load("./inputs/Q_f.npy")    
     R = np.load("./inputs/R.npy")
     
-    noisedist = [noise_dist1]
-    #noisedist = ["normal", "uniform","quadratic"]
+    #noisedist = [noise_dist1]
+    noisedist = ["normal", "uniform","quadratic"]
     for noise_dist in noisedist:
         for num_noise in num_noise_list:
             print("disturbance : ", dist, "/ noise : ", noise_dist, "/ num_noise : ", num_noise)
@@ -256,11 +256,13 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
                 
             #-------Noise distribution ---------#
             if noise_dist == "uniform":
+                theta = 0.1
                 v_min = -0.4*np.ones(ny)
                 v_max = 0.4*np.ones(ny)
                 mu_v = (0.5*(v_max + v_min))[..., np.newaxis]
                 M = 1/12*np.diag((v_max - v_min)**2)
             elif noise_dist =="normal":
+                theta = 0.05
                 v_max = None
                 v_min = None
                 M = 0.01*np.eye(ny) #observation noise covariance
@@ -299,10 +301,12 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
                     mu_hat = 0*np.ones((T, nx, 1))
                     _, M_hat = gen_sample_dist(noise_dist, T+1, num_noise, mu_w=mu_v, Sigma_w=M, w_max=v_max, w_min=v_min) # generate M hat!
             
-            M_hat = M_hat + 1e-10*np.eye(ny) # to prevent numerical error on inverse
-            #Sigma_hat = Sigma_hat + 1e-10*np.eye(nx) # to prevent numerical error
-            #print(M_hat[0])
-            print(np.linalg.matrix_rank(M_hat[0]))
+            
+            M_hat = M_hat + 1e-9*np.eye(ny) # to prevent numerical error (if matrix have less than ny samples, it is singular)
+            #print("rank of M : ", np.linalg.matrix_rank(M_hat[0]))
+            #Sigma_hat = Sigma_hat +1e-8*np.eye(nx)
+            #print(M_hat[0].)
+            
             #-------Create a random system-------
             system_data = (A, B, C, Q, Qf, R, M)
         #    print('Sys Data:', system_data)
@@ -364,8 +368,8 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
                     wdrc = WDRC(theta, T, dist, noise_dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat, -1)
                     lqg = LQG(T, dist, noise_dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat)
                 
+                wdrc.backward() 
                 drkf_wdrc.backward()
-                wdrc.backward()  
                 #mmse_wdrc.backward()
                 lqg.backward()
                 

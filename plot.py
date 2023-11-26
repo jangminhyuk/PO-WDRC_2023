@@ -333,6 +333,7 @@ def summarize(out_lq_list, out_dr_list, out_drkf_list, out_mmse_list, dist, nois
 
         ax.grid()
         ax.set_axisbelow(True)
+        plt.title('{} system disturbance, {} observation noise'.format(dist, noise_dist))
         plt.xlabel(r'Total Cost', fontsize=16)
         plt.ylabel(r'Frequency', fontsize=16)
         plt.xticks(fontsize=16)

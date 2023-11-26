@@ -198,8 +198,8 @@ class WDRC:
                     # cp.bmat([[Sigma_hat_12_var @ Sigma @ Sigma_hat_12_var, Y],
                     #          [Y, np.eye(self.nx)]
                     #          ]) >> 0,
-                    cp.bmat([[Sigma, Y],
-                         [Y, Sigma_hat]
+                    cp.bmat([[Sigma_hat, Y],
+                         [Y, Sigma]
                          ]) >> 0,
                     Sigma >> 0,
                     X_pred >> 0,

@@ -321,7 +321,7 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
                     mu_hat = 0*np.ones((T, nx, 1))
                     _, M_hat = gen_sample_dist(noise_dist, T+1, num_noise, mu_w=mu_v, Sigma_w=M, w_max=v_max, w_min=v_min) # generate M hat!
             
-            M_hat = M_hat + 1e-6*np.eye(ny)
+            M_hat = M_hat + 1e-9*np.eye(ny)
 
             #-------Create a random system-------
             system_data = (A, B, C, Q, Qf, R, M)
