@@ -10,11 +10,12 @@ import scipy
 #This method implements the SDP formualation of MMSE estimation problem from "Shafieezadeh Abadeh, Soroosh, et al. "Wasserstein distributionally robust Kalman filtering." Advances in Neural Information Processing Systems 31 (2018)."
 #For Kalman filtering, this method makes the ambiguity set of dimension [nx + ny] 
 class DRKF_WDRC_0:
-    def __init__(self, theta, T, dist, noise_dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat, app_lambda):
+    def __init__(self, theta, T, dist, noise_dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, mu_v, v_mean_hat, M_hat, app_lambda):
         self.dist = dist
         self.noise_dist = noise_dist
         self.T = T
         self.A, self.B, self.C, self.Q, self.Qf, self.R, self.M = system_data
+        self.v_mean_hat = v_mean_hat
         self.M_hat = M_hat
         self.nx = self.B.shape[0]
         self.nu = self.B.shape[1]
@@ -24,6 +25,7 @@ class DRKF_WDRC_0:
         self.mu_hat = mu_hat
         self.Sigma_hat = Sigma_hat
         self.mu_w = mu_w
+        self.mu_v = mu_v
         self.Sigma_w = Sigma_w
         if self.dist=="uniform" or self.dist=="quadratic":
             self.x0_max = x0_max
@@ -243,7 +245,7 @@ class DRKF_WDRC_0:
         P_new = P_ - P_ @ self.C.T @ temp
         return P_new
     
-    def kalman_filter(self, M_hat, x, P, y, mu_w=None, P_w=None, u = None):
+    def kalman_filter(self, v_mean_hat, M_hat, x, P, y, mu_w=None, P_w=None, u = None):
         #Performs state estimation based on the current state estimate, control input and new observation
         if u is None:
             #Initial state estimate
@@ -255,7 +257,7 @@ class DRKF_WDRC_0:
 #            P_ = self.A @ P @ self.A.T + P_w
 
         #Measurement update
-        resid = y - self.C @ x_
+        resid = y - (self.C @ x_ + v_mean_hat)
 
 #        temp = np.linalg.solve(self.C @ P_ @ self.C.T + self.M, self.C @ P_)
 #        P_new = P_ - P_ @ self.C.T @ temp
@@ -276,6 +278,8 @@ class DRKF_WDRC_0:
         N = cp.Variable((self.nx+self.ny, self.nx+self.ny), symmetric=True)
         X_pred = cp.Variable((self.nx,self.nx), symmetric=True)
         
+        #M_test = cp.Variable((self.ny, self.ny), symmetric=True) # Just for test!!
+        
         #Parameters
         #Sigma_hat_12_var = cp.Parameter((self.nx, self.nx)) # nominal Sigma_w root
         Sigma_w = cp.Parameter((self.nx, self.nx)) # nominal Sigma_w
@@ -284,7 +288,7 @@ class DRKF_WDRC_0:
         M_hat = cp.Parameter((self.ny, self.ny))
         P_var = cp.Parameter((self.nx,self.nx))
         S_var = cp.Parameter((self.nx,self.nx))
-
+        
         #Sigma_hat_12_var.value = np.real(scipy.linalg.sqrtm(Sigma_hat))
         Sigma_w.value = Sigma_hat
         radi.value = theta
@@ -301,7 +305,7 @@ class DRKF_WDRC_0:
         #constraints
         constraints = [
                 cp.bmat([[Sigma_w, Y],
-                         [Y, Sigma_wc]
+                         [Y.T, Sigma_wc]
                          ]) >> 0,
                 # cp.bmat([[Sigma_hat_12_var @ Sigma_wc @ Sigma_hat_12_var, Y],
                 #         [Y, np.eye(self.nx)]
@@ -313,6 +317,13 @@ class DRKF_WDRC_0:
                 Sigma_z == cp.bmat([[X_pred, X_pred @ self.C.T],
                                     [self.C @ X_pred, self.C @ X_pred @ self.C.T + M_hat]
                                     ]),
+                ## Below is just for test!!
+                # S_xx == X_pred,
+                # S_xy == X_pred @ self.C.T,
+                # S_yy == self.C @ X_pred @ self.C.T + M_test,
+                # M_test >> 0,
+                ## Above is just for test!!
+                
                 cp.bmat([[S_xx - V , S_xy],
                          [S_xy.T, S_yy]
                          ]) >> 0,
@@ -322,7 +333,7 @@ class DRKF_WDRC_0:
                 S >> 0,
                 cp.trace(S + Sigma_z - 2*N ) <= radi**2,
                 cp.bmat([[Sigma_z, N],
-                         [N, S]
+                         [N.T, S]
                          ]) >> 0,
                 N>>0
                 ]
@@ -353,15 +364,17 @@ class DRKF_WDRC_0:
         return S_opt, S_xx_opt, S_xy_opt, S_yy_opt, Sigma_wc_opt
     
     #DR Kalman FILTER !!!!!!!!!!!!!!!!!!!!!!!!
-    def DR_kalman_filter(self, M_hat, x, y, S_xx, S_xy, S_yy, mu_w=None, u = None):
+    def DR_kalman_filter(self, v_mean_hat, M_hat, x, y, S_xx, S_xy, S_yy, mu_w=None, u = None):
         if u is None:
             #Initial state estimate
             x_ = x
-            y_ = self.C @ x
+            y_ = self.C @ x 
+            #y_ = self.C @ x
         else:
             #Prediction step
             x_ = self.A @ x + self.B @ u + mu_w
-            y_ = self.C @ (self.A @ x + self.B @ u + mu_w)
+            y_ = self.C @ (self.A @ x + self.B @ u + mu_w) + v_mean_hat
+            #y_ = self.C @ (self.A @ x + self.B @ u + mu_w)
         
         x_new = S_xy @ np.linalg.inv(S_yy) @ (y - y_) + x_
         return x_new
@@ -369,11 +382,11 @@ class DRKF_WDRC_0:
     def DR_kalman_filter_cov(self, P, S, M_hat, X_cov, Sigma_hat):
         #Performs state estimation based on the current state estimate, control input and new observation
         theta = self.theta
-        S, S_xx, S_xy, S_yy, Sigma_wc = self.solve_DR_sdp(P, S, M_hat, X_cov, Sigma_hat, theta) # used theta as a radius!!! (can be changed on purpose)
+        Sopt, S_xx, S_xy, S_yy, Sigma_wc = self.solve_DR_sdp(P, S, M_hat, X_cov, Sigma_hat, theta) # used theta as a radius!!! (can be changed on purpose)
         
         X_cov_new = S_xx - S_xy @ np.linalg.inv(S_yy) @ S_xy.T
         
-        return X_cov_new, S, S_xx, S_xy, S_yy, Sigma_wc
+        return X_cov_new, Sopt, S_xx, S_xy, S_yy, Sigma_wc
     
     def DR_kalman_filter_cov_repeat(self, Sigma): # for repeating steps!!
         
@@ -429,7 +442,7 @@ class DRKF_WDRC_0:
         self.S_xy = np.zeros((self.T+1, self.nx, self.ny))
         self.S_yy = np.zeros((self.T+1, self.ny, self.ny))
         self.sigma_wc = np.zeros((self.T, self.nx, self.nx))
-
+        #print(self.v_mean_hat[0])
         self.x_cov[0], self.S_opt[0], self.S_xx[0], self.S_xy[0], self.S_yy[0], self.sigma_wc[0]= self.DR_kalman_filter_cov(self.P[0], self.S[0], self.M_hat[0], self.x0_cov, self.Sigma_hat[0])
         for t in range(self.T):
             print("DRKF WDRC Offline step : ",t,"/",self.T)
@@ -472,7 +485,7 @@ class DRKF_WDRC_0:
             x[0] = self.quadratic(self.x0_max, self.x0_min)
         #---noise----
         if self.noise_dist=="normal":
-            true_v = self.normal(np.zeros((self.ny,1)), self.M) #observation noise
+            true_v = self.normal(self.mu_v, self.M) #observation noise
         elif self.noise_dist=="uniform":
             true_v = self.uniform(self.v_max, self.v_min) #observation noise
         elif self.noise_dist=="quadratic":
@@ -480,7 +493,8 @@ class DRKF_WDRC_0:
             
                 
         y[0] = self.get_obs(x[0], true_v) #initial observation
-        x_mean[0] = self.DR_kalman_filter(self.M_hat[0], self.x0_mean, y[0], self.S_xx[0], self.S_xy[0], self.S_yy[0]) #initial state estimation
+        
+        x_mean[0] = self.DR_kalman_filter(self.v_mean_hat[0], self.M_hat[0], self.x0_mean, y[0], self.S_xx[0], self.S_xy[0], self.S_yy[0]) #initial state estimation
 
         for t in range(self.T):
             mu_wc[t] = self.H[t] @ x_mean[t] + self.h[t] #worst-case mean
@@ -494,7 +508,7 @@ class DRKF_WDRC_0:
                 true_w = self.quadratic(self.w_max, self.w_min)
             #noise sampling
             if self.noise_dist=="normal":
-                true_v = self.normal(np.zeros((self.ny,1)), self.M) #observation noise
+                true_v = self.normal(self.mu_v, self.M) #observation noise
             elif self.noise_dist=="uniform":
                 true_v = self.uniform(self.v_max, self.v_min) #observation noise
             elif self.noise_dist=="quadratic":
@@ -502,11 +516,11 @@ class DRKF_WDRC_0:
 
             #Apply the control input to the system
             u[t] = self.K[t] @ x_mean[t] + self.L[t]
-            x[t+1] = self.A @ x[t] + self.B @ u[t] + true_w
+            x[t+1] = self.A @ x[t] + self.B @ u[t] + true_w 
             y[t+1] = self.get_obs(x[t+1], true_v)
 
             #Update the state estimation (using the worst-case mean and covariance)
-            x_mean[t+1] = self.DR_kalman_filter(self.M_hat[t], x_mean[t], y[t+1], self.S_xx[t+1], self.S_xy[t+1], self.S_yy[t+1], mu_wc[t], u=u[t])
+            x_mean[t+1] = self.DR_kalman_filter(self.v_mean_hat[t], self.M_hat[t], x_mean[t], y[t+1], self.S_xx[t+1], self.S_xy[t+1], self.S_yy[t+1], mu_wc[t], u=u[t])
 
         #Compute the total cost
         J[self.T] = x[self.T].T @ self.Qf @ x[self.T]

@@ -5,11 +5,12 @@ import numpy as np
 import time
 
 class LQG:
-    def __init__(self, T, dist, noise_dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat):
+    def __init__(self, T, dist, noise_dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, mu_v, v_mean_hat, M_hat):
         self.dist = dist
         self.noise_dist = noise_dist
         self.T = T
         self.A, self.B, self.C, self.Q, self.Qf, self.R, self.M = system_data
+        self.v_mean_hat = v_mean_hat
         self.M_hat = M_hat
         self.nx = self.B.shape[0]
         self.nu = self.B.shape[1]
@@ -19,6 +20,7 @@ class LQG:
         self.mu_hat = mu_hat
         self.Sigma_hat = Sigma_hat
         self.mu_w = mu_w
+        self.mu_v = mu_v # true
         self.Sigma_w = Sigma_w
         if self.dist=="uniform" or self.dist=="quadratic":
             self.x0_max = x0_max
@@ -90,7 +92,7 @@ class LQG:
         P_new = P_ - P_ @ self.C.T @ temp
         return P_new
     
-    def kalman_filter(self, M_hat, x, P, y, mu_w=None, u = None):
+    def kalman_filter(self, v_mean_hat, M_hat, x, P, y, mu_w=None, u = None):
         #Performs state estimation based on the current state estimate, control input and new observation
         if u is None:
             #Initial state estimate
@@ -102,7 +104,7 @@ class LQG:
 #            P_ = self.A @ P @ self.A.T + P_w
 
         #Measurement update
-        resid = y - self.C @ x_
+        resid = y - (self.C @ x_ + v_mean_hat) 
 
 #        temp = np.linalg.solve(self.C @ P_ @ self.C.T + self.M, self.C @ P_)
 #        P_new = P_ - P_ @ self.C.T @ temp
@@ -160,14 +162,14 @@ class LQG:
             x[0] = self.quadratic(self.x0_max, self.x0_min)
         #---noise----
         if self.noise_dist=="normal":
-            true_v = self.normal(np.zeros((self.ny,1)), self.M) #observation noise
+            true_v = self.normal(self.mu_v, self.M) #observation noise
         elif self.noise_dist=="uniform":
             true_v = self.uniform(self.v_max, self.v_min) #observation noise
         elif self.noise_dist=="quadratic":
             true_v = self.quadratic(self.v_max, self.v_min) #observation noise
             
         y[0] = self.get_obs(x[0], true_v) #initial observation
-        x_mean[0] = self.kalman_filter(self.M_hat[0], self.x0_mean, self.x_cov[0], y[0]) #initial state estimation
+        x_mean[0] = self.kalman_filter(self.v_mean_hat[0] , self.M_hat[0], self.x0_mean, self.x_cov[0], y[0]) #initial state estimation
         
         for t in range(self.T):
             #disturbance sampling
@@ -179,7 +181,7 @@ class LQG:
                 true_w = self.quadratic(self.w_max, self.w_min)
             #noise sampling
             if self.noise_dist=="normal":
-                true_v = self.normal(np.zeros((self.ny,1)), self.M) #observation noise
+                true_v = self.normal(self.mu_v, self.M) #observation noise
             elif self.noise_dist=="uniform":
                 true_v = self.uniform(self.v_max, self.v_min) #observation noise
             elif self.noise_dist=="quadratic":
@@ -190,7 +192,7 @@ class LQG:
             y[t+1] = self.get_obs(x[t+1], true_v)
 
             #Update the state estimation (using the nominal mean and covariance)
-            x_mean[t+1] = self.kalman_filter(self.M_hat[t], x_mean[t], self.x_cov[t+1], y[t+1], self.mu_hat[t], u=u[t])
+            x_mean[t+1] = self.kalman_filter(self.v_mean_hat[t], self.M_hat[t], x_mean[t], self.x_cov[t+1], y[t+1], self.mu_hat[t], u=u[t])
 
         #Compute the total cost
         J[self.T] = x[self.T].T @ self.Qf @ x[self.T]

@@ -11,11 +11,12 @@ import scipy
 # The Gelbrich MMSE Estimation Problem
 
 class MMSE_WDRC:
-    def __init__(self, theta, T, dist, noise_dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, M_hat, num_noise_samples, app_lambda):
+    def __init__(self, theta, T, dist, noise_dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, mu_v, v_mean_hat, M_hat, num_noise_samples, app_lambda):
         self.dist = dist
         self.noise_dist = noise_dist
         self.T = T
         self.A, self.B, self.C, self.Q, self.Qf, self.R, self.M = system_data
+        self.v_mean_hat = v_mean_hat
         self.M_hat = M_hat
         self.nx = self.B.shape[0]
         self.nu = self.B.shape[1]
@@ -25,6 +26,7 @@ class MMSE_WDRC:
         self.mu_hat = mu_hat
         self.Sigma_hat = Sigma_hat
         self.mu_w = mu_w
+        self.mu_v = mu_v
         self.Sigma_w = Sigma_w
         if self.dist=="uniform" or self.dist=="quadratic":
             self.x0_max = x0_max
@@ -243,7 +245,7 @@ class MMSE_WDRC:
         P_new = P_ - P_ @ self.C.T @ temp
         return P_new
     
-    def kalman_filter(self, M_hat, x, P, y, mu_w=None, P_w=None, u = None): # not used!!
+    def kalman_filter(self,v_mean_hat, M_hat, x, P, y, mu_w=None, P_w=None, u = None): # not used!!
         #Performs state estimation based on the current state estimate, control input and new observation
         if u is None:
             #Initial state estimate
@@ -255,7 +257,7 @@ class MMSE_WDRC:
 #            P_ = self.A @ P @ self.A.T + P_w
 
         #Measurement update
-        resid = y - self.C @ x_
+        resid = y - (self.C @ x_ +v_mean_hat)
 
 #        temp = np.linalg.solve(self.C @ P_ @ self.C.T + self.M, self.C @ P_)
 #        P_new = P_ - P_ @ self.C.T @ temp
@@ -419,19 +421,14 @@ class MMSE_WDRC:
 
         self.x_cov[0], self.Alpha[0], self.M_cov[0]  = self.DR_Estimation_cov(self.M_hat[0], self.x0_cov)
         for t in range(self.T):
+            
             print("MMSE WDRC Offline step : ",t,"/",self.T)
-            sdp_prob = self.gen_sdp(self.lambda_, self.M_hat[t])
+            sdp_prob = self.gen_sdp(self.lambda_, self.M_hat[t]) 
             sigma_wc[t], X, status = self.solve_sdp(sdp_prob, self.x_cov[t], self.P[t+1], self.S[t+1], self.Sigma_hat[t])
             if status in ["infeasible", "unbounded"]:
                 print(status, 'False!!!!!!!!!!!!!')
-            
-            # Below 3 lines need to be erased except choice m-4
-            # X_ = self.A @ self.x_cov[t] @ self.A.T + sigma_wc[t]
-            # temp = np.linalg.solve(self.C @ X_ @ self.C.T + self.M_hat[t], self.C @ X_)
-            # X_wc = X_ - X_ @ self.C.T @ temp #worst covariance X
-            # self.x_cov[t+1], self.Alpha[t+1], self.M_cov[t+1] = self.DR_Estimation_cov(self.M_hat[t+1], X_wc, sigma_wc[t]) # choice m-4 #sigma_wc not accessed
-            
-            
+
+            # this method solves SDP first, then apply DRsdp
             
             self.x_cov[t+1], self.Alpha[t+1], self.M_cov[t+1] = self.DR_Estimation_cov(self.M_hat[t], self.x_cov[t], sigma_wc[t]) # choice m-1 # mosek error sometimes happens
             
@@ -465,15 +462,15 @@ class MMSE_WDRC:
             x[0] = self.quadratic(self.x0_max, self.x0_min)
         #---noise----
         if self.noise_dist=="normal":
-            true_v = self.normal(np.zeros((self.ny,1)), self.M) #observation noise
+            true_v = self.normal(self.mu_v, self.M) #observation noise
         elif self.noise_dist=="uniform":
             true_v = self.uniform(self.v_max, self.v_min) #observation noise
         elif self.noise_dist=="quadratic":
             true_v = self.quadratic(self.v_max, self.v_min) #observation noise
                 
         y[0] = self.get_obs(x[0], true_v) #initial observation
-        v = np.zeros((self.ny,1)) # can be changed!!
-        x_mean[0] = self.DR_Estimation(self.x0_mean, self.Alpha[0], v, y[0]) #initial state estimation
+        #v = np.zeros((self.ny,1)) # can be changed!!
+        x_mean[0] = self.DR_Estimation(self.x0_mean, self.Alpha[0], y[0]) #initial state estimation
 
         for t in range(self.T):
             mu_wc[t] = self.H[t] @ x_mean[t] + self.h[t] #worst-case mean
@@ -487,7 +484,7 @@ class MMSE_WDRC:
                 true_w = self.quadratic(self.w_max, self.w_min)
             #noise sampling
             if self.noise_dist=="normal":
-                true_v = self.normal(np.zeros((self.ny,1)), self.M) #observation noise
+                true_v = self.normal(self.mu_v, self.M) #observation noise
             elif self.noise_dist=="uniform":
                 true_v = self.uniform(self.v_max, self.v_min) #observation noise
             elif self.noise_dist=="quadratic":
@@ -499,7 +496,7 @@ class MMSE_WDRC:
             y[t+1] = self.get_obs(x[t+1], true_v)
 
             #Update the state estimation (using the worst-case mean and covariance)
-            x_mean[t+1] = self.DR_Estimation(x_mean[t], self.Alpha[t+1], v, y[t+1], mu_wc[t], u = u[t])
+            x_mean[t+1] = self.DR_Estimation(x_mean[t], self.Alpha[t+1], y[t+1], mu_wc[t], u = u[t])
 
         #Compute the total cost
         J[self.T] = x[self.T].T @ self.Qf @ x[self.T]
