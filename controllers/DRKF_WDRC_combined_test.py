@@ -273,8 +273,7 @@ class DRKF_WDRC_test:
         Sigma_z = cp.Variable((self.nx+self.ny, self.nx+self.ny), symmetric=True)
         N = cp.Variable((self.ny, self.ny), symmetric=True)
         X_pred = cp.Variable((self.nx,self.nx), symmetric=True)
-        
-        M_test = cp.Variable((self.ny, self.ny), symmetric=True) # Just for test!!
+        M_test = cp.Variable((self.ny, self.ny), symmetric=True)
         
         #Parameters
         #Sigma_hat_12_var = cp.Parameter((self.nx, self.nx)) # nominal Sigma_w root
@@ -282,6 +281,7 @@ class DRKF_WDRC_test:
         radi = cp.Parameter(nonneg=True)
         x_cov = cp.Parameter((self.nx, self.nx)) # x_cov from before time step
         M_hat = cp.Parameter((self.ny, self.ny))
+        M_hat_12_var = cp.Parameter((self.ny, self.ny)) # nominal M_hat root
         P_var = cp.Parameter((self.nx,self.nx))
         S_var = cp.Parameter((self.nx,self.nx))
         
@@ -290,6 +290,7 @@ class DRKF_WDRC_test:
         radi.value = theta
         x_cov.value = X_cov
         M_hat.value = M
+        M_hat_12_var.value = np.real(scipy.linalg.sqrtm(M))
         P_var.value = P_t1 # P[t+1]
         S_var.value = S_t1 # S[t+1]
         
@@ -313,9 +314,12 @@ class DRKF_WDRC_test:
                 self.C @ X_pred @ self.C.T + M_test >>0,
                 #S >> cp.lambda_min(Sigma_z) * np.eye(self.nx+self.ny),
                 cp.trace(M_hat + M_test - 2*N ) <= radi**2,
-                cp.bmat([[M_hat, N],
-                         [N.T, M_test]
-                         ]) >> 0,
+                # cp.bmat([[M_hat, N],
+                #          [N.T, M_test]
+                #          ]) >> 0,
+                cp.bmat([[M_hat_12_var @ M_test @ M_hat_12_var, N],
+                        [N, np.eye(self.ny)]
+                        ]) >> 0,
                 N>>0
                 ]
         
@@ -325,8 +329,6 @@ class DRKF_WDRC_test:
         
         if prob.status in ["infeasible", "unbounded"]:
             print(prob.status, 'False in DRKF combined!!!!!!!!!!!!!')
-        
-        
         
         
         S_xx_opt = X_pred.value

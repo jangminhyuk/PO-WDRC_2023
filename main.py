@@ -156,8 +156,8 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
     #theta_list = [2]
     #theta_list = [0.05, 0.1, 0.5, 1, 2, 5]
     theta_list = [1]
-    #noisedist = [noise_dist1] # if you want to test only one distribution
-    noisedist = ["normal", "uniform","quadratic"] # if you want to test 3 distribution at once
+    noisedist = [noise_dist1] # if you want to test only one distribution
+    #noisedist = ["normal", "uniform","quadratic"] # if you want to test 3 distribution at once
     for noise_dist in noisedist:
         for theta in theta_list:
             for num_noise in num_noise_list:
@@ -309,9 +309,9 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
                 
                 #v_mean_hat = 0*np.ones((T+1, ny, 1))
                 #print(v_mean_hat[0])
-                M_hat = M_hat + 1e-8*np.eye(ny) # to prevent numerical error (if matrix have less than ny samples, it is singular)
+                M_hat = M_hat + 1e-6*np.eye(ny) # to prevent numerical error (if matrix have less than ny samples, it is singular)
                 #print("rank of M : ", np.linalg.matrix_rank(M_hat[0]))
-                Sigma_hat = Sigma_hat +1e-4*np.eye(nx)
+                Sigma_hat = Sigma_hat +1e-6*np.eye(nx)
                 #print(M_hat[0].)
                 
                 #-------Create a random system-------
