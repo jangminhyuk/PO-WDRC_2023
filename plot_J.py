@@ -86,6 +86,7 @@ if __name__ == "__main__":
     parser.add_argument('--dist', required=False, default="normal", type=str) #disurbance distribution (normal or uniform)
     parser.add_argument('--noise_dist', required=False, default="normal", type=str) #noise distribution (normal or uniform)
     parser.add_argument('--application', required=False, action="store_true")
+    parser.add_argument('--theta', required=False, default="1")
     args = parser.parse_args()
     
     
@@ -106,7 +107,7 @@ if __name__ == "__main__":
     if args.application:
         path = "./results/quad_{}_{}/finite/multiple/num_noise_plot".format(args.dist, args.noise_dist)
     else:
-        path = "./results/{}_{}/finite/multiple/num_noise_plot".format(args.dist, args.noise_dist)
+        path = "./results/{}_{}/finite/multiple/num_noise_plot/{}".format(args.dist, args.noise_dist, args.theta)
     num_noise_list = [5, 10, 15, 20, 25, 30]
     # avg_cost_lqg = [25576.348, 5473.018, 3682.205, 3588.105, 3514.703, 3399.839]
     # avg_cost_wdrc = [4703.05, 1749.400, 1757.495, 1835.393, 1895.03, 1870.068]

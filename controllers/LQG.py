@@ -97,18 +97,19 @@ class LQG:
         if u is None:
             #Initial state estimate
             x_ = x
-#            P_ = P
         else:
             #Prediction update
             x_ = self.A @ x + self.B @ u + mu_w
-#            P_ = self.A @ P @ self.A.T + P_w
-
+            
+        P_ = self.C @ P @ self.C.T + M_hat
         #Measurement update
         resid = y - (self.C @ x_ + v_mean_hat) 
 
 #        temp = np.linalg.solve(self.C @ P_ @ self.C.T + self.M, self.C @ P_)
 #        P_new = P_ - P_ @ self.C.T @ temp
-        temp = np.linalg.solve(M_hat, resid)
+        #temp = np.linalg.solve(M_hat, resid) 
+        # HERE!!
+        temp = np.linalg.solve(P_, resid)
         x_new = x_ + P @ self.C.T @ temp
         return x_new
 

@@ -190,19 +190,19 @@ class WDRC:
         
             P_var = cp.Parameter((self.nx,self.nx))
             S_var = cp.Parameter((self.nx,self.nx))
-            #Sigma_hat_12_var = cp.Parameter((self.nx,self.nx))
-            Sigma_hat = cp.Parameter((self.nx,self.nx))
+            Sigma_hat_12_var = cp.Parameter((self.nx,self.nx))
+            #Sigma_hat = cp.Parameter((self.nx,self.nx))
             X_bar = cp.Parameter((self.nx,self.nx))
             
             obj = cp.Maximize(cp.trace((P_var - lambda_*np.eye(self.nx)) @ Sigma) + 2*lambda_*cp.trace(Y) + cp.trace(S_var @ X))
             
             constraints = [
-                    # cp.bmat([[Sigma_hat_12_var @ Sigma @ Sigma_hat_12_var, Y],
-                    #          [Y, np.eye(self.nx)]
-                    #          ]) >> 0,
-                    cp.bmat([[Sigma_hat, Y],
-                         [Y.T, Sigma]
-                         ]) >> 0,
+                    cp.bmat([[Sigma_hat_12_var @ Sigma @ Sigma_hat_12_var, Y],
+                             [Y, np.eye(self.nx)]
+                             ]) >> 0,
+                    # cp.bmat([[Sigma_hat, Y],
+                    #      [Y.T, Sigma]
+                    #      ]) >> 0,
                     Sigma >> 0,
                     X_pred >> 0,
                     cp.bmat([[X_pred - X, X_pred @ self.C.T],
@@ -222,8 +222,8 @@ class WDRC:
         params[0].value = P
         params[1].value = S
 #        params[2].value = np.linalg.cholesky(Sigma_hat)
-        #params[2].value = np.real(scipy.linalg.sqrtm(Sigma_hat))
-        params[2].value = Sigma_hat
+        params[2].value = np.real(scipy.linalg.sqrtm(Sigma_hat))
+        #params[2].value = Sigma_hat
         params[3].value = x_cov
         
         sdp_prob.solve(solver=cp.MOSEK)
@@ -263,7 +263,8 @@ class WDRC:
 #        temp = np.linalg.solve(self.C @ P_ @ self.C.T + self.M, self.C @ P_)
 #        P_new = P_ - P_ @ self.C.T @ temp
         #x_new = x_ + P @ self.C.T @ np.linalg.inv(M_hat) @ resid
-        temp = np.linalg.solve(M_hat, resid)
+        P_ = self.C @ P @ self.C.T + M_hat
+        temp = np.linalg.solve(P_, resid)
         x_new = x_ + P @ self.C.T @ temp
         return x_new
 
