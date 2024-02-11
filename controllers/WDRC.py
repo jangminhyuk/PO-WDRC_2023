@@ -9,7 +9,7 @@ import scipy
 import control
 
 class WDRC:
-    def __init__(self, theta, T, dist, noise_dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, mu_v, v_mean_hat, M_hat, app_lambda):
+    def __init__(self, lambda_, theta_w, T, dist, noise_dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, mu_v, v_mean_hat, M_hat, app_lambda):
         self.dist = dist
         self.noise_dist = noise_dist
         self.T = T
@@ -26,6 +26,7 @@ class WDRC:
         self.mu_w = mu_w
         self.mu_v = mu_v
         self.Sigma_w = Sigma_w
+        self.theta_w = theta_w
         if self.dist=="uniform" or self.dist=="quadratic":
             self.x0_max = x0_max
             self.x0_min = x0_min
@@ -35,19 +36,38 @@ class WDRC:
         if self.noise_dist =="uniform" or self.noise_dist =="quadratic":
             self.v_max = v_max
             self.v_min = v_min
+            
+        #---system----
+        if self.dist=="normal":
+            self.x0_init = self.normal(self.x0_mean, self.x0_cov)
+        elif self.dist=="uniform":
+            self.x0_init = self.uniform(self.x0_max, self.x0_min)
+        elif self.dist=="quadratic":
+            self.x0_init = self.quadratic(self.x0_max, self.x0_min)
+        #---noise----
+        if self.noise_dist=="normal":
+            self.true_v_init = self.normal(self.mu_v, self.M) #observation noise
+        elif self.noise_dist=="uniform":
+            self.true_v_init = self.uniform(self.v_max, self.v_min) #observation noise
+        elif self.noise_dist=="quadratic":
+            self.true_v_init = self.quadratic(self.v_max, self.v_min) #observation noise
+            
         #Initial state
-        # if self.dist=="normal":
-        #     self.lambda_ = 780
+        if self.dist=="normal":
+            self.lambda_ = 780
         # elif self.dist=="uniform":
         #     self.lambda_ = 780.2396483109309
         # elif self.dist=="quadratic":
         #     self.lambda_ = 780
-        self.lambda_ = 1400
+        #self.lambda_ = 1634
+        self.lambda_ = lambda_
         
-        if app_lambda>0:
-            self.lambda_ = app_lambda #use for lambda modification in application
+        #--deprecated
+        #if app_lambda>0:
+        #    self.lambda_ = app_lambda #use for lambda modification in application
+        #--deprecated--#
         
-        print("WDRC ", self.dist, " / ", self.noise_dist)
+        print("WDRC ", self.dist, " / ", self.noise_dist, " / theta_w : ", self.theta_w)
         #self.lambda_ = self.optimize_penalty() #optimize penalty parameter for theta
 #        self.lambda_ = 3.5
         #self.binarysearch_infimum_penalty_finite()
@@ -61,21 +81,20 @@ class WDRC:
         self.h = np.zeros(( self.T, self.nx, 1))
         self.g = np.zeros(( self.T, self.nx, self.nx))
         
-        #self.sdp_prob = self.gen_sdp(self.lambda_)
+        #self.sdp_prob_ = self.gen_sdp(self.lambda_, self.M_hat)
     
     def optimize_penalty(self):
         # Find inf_penalty (infimum value of penalty coefficient satisfying Assumption 1)
         self.infimum_penalty = self.binarysearch_infimum_penalty_finite()
         print("Infimum penalty:", self.infimum_penalty)
         #Optimize penalty using nelder-mead method
-        #optimal_penalty = minimize(self.objective, x0=np.array([2*self.infimum_penalty]), method='nelder-mead', options={'xatol': 1e-6, 'disp': False}).x[0]
-        #self.infimum_penalty = 1.5
-        #np.max(np.linalg.eigvals(self.Qf)) + 1e-6
-        #output = minimize(self.objective, x0=np.array([2*self.infimum_penalty]), method='L-BFGS-B', options={'maxfun': 100000, 'disp': False, 'maxiter': 100000})
-        #print(output.message)
-        #optimal_penalty = output.x[0]
-        optimal_penalty = 2* self.infimum_penalty
-        print("WDRC Optimal penalty (lambda_star):", optimal_penalty)
+        #optimal_penalty = minimize(self.objective, x0=np.array([5*self.infimum_penalty]), method='nelder-mead', options={'xatol': 1e-6, 'disp': False, 'maxiter':10000}).x[0]
+        
+        output = minimize(self.objective, x0=np.array([3000]), method='L-BFGS-B', options={'eps': 1e-8 ,'maxfun': 10000, 'disp': False, 'maxiter': 10000, 'ftol': 1e-6, 'gtol': 1e-6, 'maxls': 20})
+        #print(output.message)   
+        optimal_penalty = output.x[0]
+        #optimal_penalty = 2* self.infimum_penalty
+        print("WDRC Optimal penalty (lambda_star) :", optimal_penalty, " when theta_w : ", self.theta_w, "\n\n")   
         return optimal_penalty
 
     def objective(self, penalty):
@@ -106,9 +125,11 @@ class WDRC:
         x_cov = np.zeros((self.T, self.nx, self.nx))
         sigma_wc = np.zeros((self.T, self.nx, self.nx))
         y = self.get_obs(self.x0_init, self.true_v_init)
-        x0_mean = self.kalman_filter(self.M_hat[0], self.x0_mean, self.x0_cov, y) #initial state estimation
+        #y[0] = self.get_obs(x[0], true_v)
+        x0_mean = self.kalman_filter(self.v_mean_hat[0],self.M_hat[0], self.x0_mean, self.x0_cov, y) #initial state estimation
         x_cov[0] = self.kalman_filter_cov(self.M_hat[0], self.x0_cov)
         for t in range(0, self.T-1):
+            
             x_cov[t+1] = self.kalman_filter_cov(self.M_hat[t], x_cov[t], sigma_wc[t])
             sdp_prob = self.gen_sdp(penalty, self.M_hat[t])
             sigma_wc[t], z_tilde[t], status = self.solve_sdp(sdp_prob, x_cov[t], P[t+1], S[t+1], self.Sigma_hat[t])
@@ -116,7 +137,7 @@ class WDRC:
                 print(status)
                 return np.inf
                 
-        return penalty*self.T*self.theta**2 + (x0_mean.T @ P[0] @ x0_mean)[0][0] + 2*(r[0].T @ x0_mean)[0][0] + z[0][0] + np.trace((P[0] + S[0]) @ x_cov[0]) + z_tilde.sum()
+        return penalty*self.T*self.theta_w**2 + (x0_mean.T @ P[0] @ x0_mean)[0][0] + 2*(r[0].T @ x0_mean)[0][0] + z[0][0] + np.trace((P[0] + S[0]) @ x_cov[0]) + z_tilde.sum()
     
     def binarysearch_infimum_penalty_finite(self):
         left = 0
@@ -263,8 +284,8 @@ class WDRC:
 #        temp = np.linalg.solve(self.C @ P_ @ self.C.T + self.M, self.C @ P_)
 #        P_new = P_ - P_ @ self.C.T @ temp
         #x_new = x_ + P @ self.C.T @ np.linalg.inv(M_hat) @ resid
-        P_ = self.C @ P @ self.C.T + M_hat
-        temp = np.linalg.solve(P_, resid)
+        #P_ = self.C @ P @ self.C.T + M_hat
+        temp = np.linalg.solve(M_hat, resid)
         x_new = x_ + P @ self.C.T @ temp
         return x_new
 
@@ -316,7 +337,7 @@ class WDRC:
             print("WDRC Offline step : ",t,"/",self.T)
             sdp_prob = self.gen_sdp(self.lambda_, self.M_hat[t])
             sigma_wc[t], _, status = self.solve_sdp(sdp_prob, self.x_cov[t], self.P[t+1], self.S[t+1], self.Sigma_hat[t])
-            print("sigma_wc[t] norm : ", np.linalg.norm(sigma_wc[t]))
+            #print("sigma_wc[t] norm : ", np.linalg.norm(sigma_wc[t]))
             if status in ["infeasible", "unbounded"]:
                 print(status, 'False!!!!!!!!!!!!!')
             self.x_cov[t+1] = self.kalman_filter_cov(self.M_hat[t], self.x_cov[t], sigma_wc[t])
