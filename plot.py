@@ -14,6 +14,23 @@ def summarize(out_lq_list, out_dr_list, out_drkf_list, out_mmse_list, dist, nois
     time_list, time_lqr_list, time_drkf_list, time_mmse_list = [], [], [], []
 #    SettlingTime_list, SettlingTime_lqr_list = [], []
 
+
+    for out in out_lq_list:
+         x_lqr_list.append(out['state_traj'])
+         J_lqr_list.append(out['cost'])
+         y_lqr_list.append(out['output_traj'])
+         u_lqr_list.append(out['control_traj'])
+         time_lqr_list.append(out['comp_time'])
+#         SettlingTime_lqr_list.append(out['SettlingTime'])
+    x_lqr_mean, J_lqr_mean, y_lqr_mean, u_lqr_mean = np.mean(x_lqr_list, axis=0), np.mean(J_lqr_list, axis=0), np.mean(y_lqr_list, axis=0), np.mean(u_lqr_list, axis=0)
+    x_lqr_std, J_lqr_std, y_lqr_std, u_lqr_std = np.std(x_lqr_list, axis=0), np.std(J_lqr_list, axis=0), np.std(y_lqr_list, axis=0), np.std(u_lqr_list, axis=0)
+    time_lqr_ar = np.array(time_lqr_list)
+    print("LQG cost : ", J_lqr_mean[0])
+    print("LQG cost std : ", J_lqr_std[0])
+#    SettlingTime_lqr_ar = np.array(SettlingTime_lqr_list)
+    J_lqr_ar = np.array(J_lqr_list)
+    
+    
     if wdrc:
         for out in out_dr_list:
             x_list.append(out['state_traj'])
@@ -31,20 +48,7 @@ def summarize(out_lq_list, out_dr_list, out_drkf_list, out_mmse_list, dist, nois
         J_ar = np.array(J_list)
 
 
-    for out in out_lq_list:
-         x_lqr_list.append(out['state_traj'])
-         J_lqr_list.append(out['cost'])
-         y_lqr_list.append(out['output_traj'])
-         u_lqr_list.append(out['control_traj'])
-         time_lqr_list.append(out['comp_time'])
-#         SettlingTime_lqr_list.append(out['SettlingTime'])
-    x_lqr_mean, J_lqr_mean, y_lqr_mean, u_lqr_mean = np.mean(x_lqr_list, axis=0), np.mean(J_lqr_list, axis=0), np.mean(y_lqr_list, axis=0), np.mean(u_lqr_list, axis=0)
-    x_lqr_std, J_lqr_std, y_lqr_std, u_lqr_std = np.std(x_lqr_list, axis=0), np.std(J_lqr_list, axis=0), np.std(y_lqr_list, axis=0), np.std(u_lqr_list, axis=0)
-    time_lqr_ar = np.array(time_lqr_list)
-    print("LQG cost : ", J_lqr_mean[0])
-    print("LQG cost std : ", J_lqr_std[0])
-#    SettlingTime_lqr_ar = np.array(SettlingTime_lqr_list)
-    J_lqr_ar = np.array(J_lqr_list)
+
 
 
     if drkf:

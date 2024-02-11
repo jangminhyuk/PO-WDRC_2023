@@ -103,13 +103,13 @@ class LQG:
             
         P_ = self.C @ P @ self.C.T + M_hat
         #Measurement update
-        resid = y - (self.C @ x_ + v_mean_hat) 
+        resid = y - (self.C @ x_ + v_mean_hat)
 
 #        temp = np.linalg.solve(self.C @ P_ @ self.C.T + self.M, self.C @ P_)
 #        P_new = P_ - P_ @ self.C.T @ temp
         #temp = np.linalg.solve(M_hat, resid) 
         # HERE!!
-        temp = np.linalg.solve(P_, resid)
+        temp = np.linalg.solve(M_hat, resid)
         x_new = x_ + P @ self.C.T @ temp
         return x_new
 
