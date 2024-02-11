@@ -134,7 +134,7 @@ def save_data(path, data):
 def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T, method, plot_results, noise_plot_results, infinite, out_of_sample, wc, h_inf):
     application = "Nothing"
     lambda_ = 1000
-    seed = 2024 # any value
+    seed = 999 # any value
     if noise_plot_results: # if you need to draw ploy_J
         num_noise_list = [5, 10, 15, 20, 25, 30]
     else:
@@ -155,12 +155,13 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
     
     #theta_list = [2]
     #theta_list = [0.05, 0.1, 0.5, 1, 2, 5]
-    theta_list = [1]
+    theta_v_list = [1]
     noisedist = [noise_dist1] # if you want to test only one distribution
     #noisedist = ["normal", "uniform","quadratic"] # if you want to test 3 distribution at once
     for noise_dist in noisedist:
-        for theta in theta_list:
+        for theta in theta_v_list:
             for num_noise in num_noise_list:
+                # theta indicates theta_v !!
                 print("disturbance : ", dist, "/ noise : ", noise_dist, "/ num_noise : ", num_noise, "/ theta : ", theta)
             #    enumerate([0.5, 1])            
             #    enumerate([0.00001, 0.0001, 0.0005, 0.0015, 0.001, 0.00015, 0.002, 0.0025, 0.005, 0.01, 0.015, 0.05, 0.1, 1]):
