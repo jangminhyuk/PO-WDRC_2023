@@ -159,8 +159,8 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
     #theta_w_list = [0.00001, 0.0001, 0.0005, 0.0015, 0.001, 0.00015, 0.002, 0.0025, 0.005, 0.01, 0.015, 0.05, 0.1, 1]
     theta_w_list =[0.1]
     #theta_list = [1]
-    #noisedist = [noise_dist1] # if you want to test only one distribution
-    noisedist = ["normal", "uniform","quadratic"] # if you want to test 3 distribution at once
+    noisedist = [noise_dist1] # if you want to test only one distribution
+    #noisedist = ["normal", "uniform","quadratic"] # if you want to test 3 distribution at once
     lambda_list = [1634]
     #lambda_list = [500, 1000, 1500, 2000, 2500]
     for lambda_ in lambda_list:

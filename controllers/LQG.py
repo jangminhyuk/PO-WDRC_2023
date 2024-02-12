@@ -143,7 +143,7 @@ class LQG:
         self.x_cov = np.zeros((self.T+1, self.nx, self.nx))
         self.x_cov[0] = self.kalman_filter_cov(self.M_hat[0], self.x0_cov)
         for t in range(self.T):
-            self.x_cov[t+1] = self.kalman_filter_cov(self.M_hat[t], self.x_cov[t], self.Sigma_hat[t])
+            self.x_cov[t+1] = self.kalman_filter_cov(self.M_hat[t+1], self.x_cov[t], self.Sigma_hat[t])
             
     def forward(self):
         #Apply the controller forward in time.
@@ -193,7 +193,7 @@ class LQG:
             y[t+1] = self.get_obs(x[t+1], true_v)
 
             #Update the state estimation (using the nominal mean and covariance)
-            x_mean[t+1] = self.kalman_filter(self.v_mean_hat[t], self.M_hat[t], x_mean[t], self.x_cov[t+1], y[t+1], self.mu_hat[t], u=u[t])
+            x_mean[t+1] = self.kalman_filter(self.v_mean_hat[t+1], self.M_hat[t+1], x_mean[t], self.x_cov[t+1], y[t+1], self.mu_hat[t], u=u[t])
 
         #Compute the total cost
         J[self.T] = x[self.T].T @ self.Qf @ x[self.T]

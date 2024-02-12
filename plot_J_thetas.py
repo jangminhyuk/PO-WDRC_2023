@@ -23,7 +23,7 @@ def summarize_noise(num_noise_list, avg_cost_lqg, std_cost_lqg, avg_cost_wdrc, s
     
 #    t = np.array([10, 15, 20, 25, 30, 35, 40, 45, 50])
     t = num_noise_list
-
+    
     J_lqr_mean = np.array(avg_cost_lqg)
     J_wdrc_mean = np.array(avg_cost_wdrc)
     # J_drkf_wdrc_mean_0_001 = np.array(avg_cost_drkf_wdrc_0_001)
