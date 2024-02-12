@@ -425,7 +425,7 @@ class DRKF_WDRC_test:
         self.x_cov[0], self.S_xx[0], self.S_xy[0], self.S_yy[0], self.sigma_wc[0]= self.DR_kalman_filter_cov(self.P[0], self.S[0], self.M_hat[0], self.x0_cov, self.Sigma_hat[0])
         for t in range(self.T):
             print("DRKF WDRC Offline step : ",t,"/",self.T)
-            self.x_cov[t+1], self.S_xx[t+1], self.S_xy[t+1], self.S_yy[t+1], self.sigma_wc[t] = self.DR_kalman_filter_cov(self.P[t+1], self.S[t+1], self.M_hat[t], self.x_cov[t], self.Sigma_hat[t])
+            self.x_cov[t+1], self.S_xx[t+1], self.S_xy[t+1], self.S_yy[t+1], self.sigma_wc[t] = self.DR_kalman_filter_cov(self.P[t+1], self.S[t+1], self.M_hat[t+1], self.x_cov[t], self.Sigma_hat[t])
             # sdp_prob = self.gen_sdp(self.lambda_, self.M_hat[t])
             # sigma_wc[t], X_wc, status = self.solve_sdp(sdp_prob, self.x_cov[t], self.P[t+1], self.S[t+1], self.Sigma_hat[t])
             # if status in ["infeasible", "unbounded"]:
@@ -499,7 +499,7 @@ class DRKF_WDRC_test:
             y[t+1] = self.get_obs(x[t+1], true_v)
 
             #Update the state estimation (using the worst-case mean and covariance)
-            x_mean[t+1] = self.DR_kalman_filter(self.v_mean_hat[t], self.M_hat[t], x_mean[t], y[t+1], self.S_xx[t+1], self.S_xy[t+1], self.S_yy[t+1], mu_wc[t], u=u[t])
+            x_mean[t+1] = self.DR_kalman_filter(self.v_mean_hat[t+1], self.M_hat[t+1], x_mean[t], y[t+1], self.S_xx[t+1], self.S_xy[t+1], self.S_yy[t+1], mu_wc[t], u=u[t])
 
         #Compute the total cost
         J[self.T] = x[self.T].T @ self.Qf @ x[self.T]

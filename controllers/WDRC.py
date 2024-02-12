@@ -211,19 +211,19 @@ class WDRC:
         
             P_var = cp.Parameter((self.nx,self.nx))
             S_var = cp.Parameter((self.nx,self.nx))
-            #Sigma_hat_12_var = cp.Parameter((self.nx,self.nx))
-            Sigma_hat = cp.Parameter((self.nx,self.nx))
+            Sigma_hat_12_var = cp.Parameter((self.nx,self.nx))
+            #Sigma_hat = cp.Parameter((self.nx,self.nx))
             X_bar = cp.Parameter((self.nx,self.nx))
             
             obj = cp.Maximize(cp.trace((P_var - lambda_*np.eye(self.nx)) @ Sigma) + 2*lambda_*cp.trace(Y) + cp.trace(S_var @ X))
             
             constraints = [
-                    # cp.bmat([[Sigma_hat_12_var @ Sigma @ Sigma_hat_12_var, Y],
-                    #          [Y, np.eye(self.nx)]
-                    #          ]) >> 0,
-                    cp.bmat([[Sigma_hat, Y],
-                         [Y.T, Sigma]
-                         ]) >> 0,
+                    cp.bmat([[Sigma_hat_12_var @ Sigma @ Sigma_hat_12_var, Y],
+                             [Y, np.eye(self.nx)]
+                             ]) >> 0,
+                    # cp.bmat([[Sigma_hat, Y],
+                    #      [Y.T, Sigma]
+                    #      ]) >> 0,
                     Sigma >> 0,
                     X_pred >> 0,
                     cp.bmat([[X_pred - X, X_pred @ self.C.T],
@@ -243,8 +243,9 @@ class WDRC:
         params[0].value = P
         params[1].value = S
 #        params[2].value = np.linalg.cholesky(Sigma_hat)
-        #params[2].value = np.real(scipy.linalg.sqrtm(Sigma_hat))
-        params[2].value = Sigma_hat
+        #params[2].value = np.real(scipy.linalg.sqrtm(Sigma_hat+ 1e-6*np.eye(self.nx)))
+        params[2].value = np.real(scipy.linalg.sqrtm(Sigma_hat))
+        #params[2].value = Sigma_hat
         params[3].value = x_cov
         
         sdp_prob.solve(solver=cp.MOSEK)
@@ -340,7 +341,7 @@ class WDRC:
             #print("sigma_wc[t] norm : ", np.linalg.norm(sigma_wc[t]))
             if status in ["infeasible", "unbounded"]:
                 print(status, 'False!!!!!!!!!!!!!')
-            self.x_cov[t+1] = self.kalman_filter_cov(self.M_hat[t], self.x_cov[t], sigma_wc[t])
+            self.x_cov[t+1] = self.kalman_filter_cov(self.M_hat[t+1], self.x_cov[t], sigma_wc[t])
             
             #print("x_cov[] norm : ", np.linalg.norm(self.x_cov[t+1]))
 
@@ -403,7 +404,7 @@ class WDRC:
             y[t+1] = self.get_obs(x[t+1], true_v)
 
             #Update the state estimation (using the worst-case mean and covariance)
-            x_mean[t+1] = self.kalman_filter(self.v_mean_hat[t], self.M_hat[t], x_mean[t], self.x_cov[t], y[t+1], mu_wc[t], u=u[t])
+            x_mean[t+1] = self.kalman_filter(self.v_mean_hat[t+1], self.M_hat[t+1], x_mean[t], self.x_cov[t+1], y[t+1], mu_wc[t], u=u[t])
 
         #Compute the total cost
         J[self.T] = x[self.T].T @ self.Qf @ x[self.T]

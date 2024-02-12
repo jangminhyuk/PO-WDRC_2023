@@ -133,13 +133,8 @@ def save_data(path, data):
 
 def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T, method, plot_results, noise_plot_results, infinite, out_of_sample, wc, h_inf):
     application = "Nothing"
-<<<<<<< HEAD
-    lambda_ = 1000
-    seed = 999 # any value
-=======
     lambda_ = 1634
     seed = 2024 # any value
->>>>>>> bfae5ea20d2cd2e8d8448e0f1120c839dd4f6294
     if noise_plot_results: # if you need to draw ploy_J
         num_noise_list = [5, 10, 15, 20, 25, 30]
     else:
@@ -159,155 +154,12 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
     R = np.load("./inputs/R.npy")
     
     #theta_list = [2]
-<<<<<<< HEAD
-    #theta_list = [0.05, 0.1, 0.5, 1, 2, 5]
-    theta_v_list = [1]
-    noisedist = [noise_dist1] # if you want to test only one distribution
-    #noisedist = ["normal", "uniform","quadratic"] # if you want to test 3 distribution at once
-    for noise_dist in noisedist:
-        for theta in theta_v_list:
-            for num_noise in num_noise_list:
-                # theta indicates theta_v !!
-                print("disturbance : ", dist, "/ noise : ", noise_dist, "/ num_noise : ", num_noise, "/ theta : ", theta)
-            #    enumerate([0.5, 1])            
-            #    enumerate([0.00001, 0.0001, 0.0005, 0.0015, 0.001, 0.00015, 0.002, 0.0025, 0.005, 0.01, 0.015, 0.05, 0.1, 1]):
-                            #:
-                np.random.seed(seed) # fix Random seed!
-                print("--------------------------------------------")
-                print("number of noise sample : ", num_noise)
-                print("number of disturbance sample : ", num_samples)
-                #theta = 0.05
-                #Path for saving the results
-                if infinite:
-                    if sim_type == "multiple":
-                        if out_of_sample:
-                            path = "./results/{}_{}/infinite/N={}/theta={}/".format(noise_dist,  num_samples, theta)
-                        else:
-                            path = "./results/{}_{}/infinite/multiple/".format(dist, noise_dist)
-                    else:
-                        path = "./results/{}_{}/infinite/single/".format(dist, noise_dist)
-                    if not os.path.exists(path):
-                        os.makedirs(path)
-                else:
-                    if sim_type == "multiple":
-                        path = "./results/{}_{}/finite/multiple/theta={}/".format(dist, noise_dist,theta)
-                    else:
-                        path = "./results/{}_{}/finite/single/theta={}/".format(dist, noise_dist, theta)
-                    if not os.path.exists(path):
-                        os.makedirs(path)
-            
-                
-                #-------Initialization-------
-                if dist =="uniform":
-        #            theta = 0.001 #Wasserstein ball radius
-                    #disturbance distribution parameters
-                    w_max = 0.15*np.ones(nx)
-                    w_min = -0.15*np.ones(nx)
-                    mu_w = (0.5*(w_max + w_min))[..., np.newaxis]
-                    Sigma_w = 1/12*np.diag((w_max - w_min)**2)
-                    #initial state distribution parameters
-                    x0_max = 0.05*np.ones(nx)
-                    x0_min = -0.05*np.ones(nx)
-            #        x0_max = 0*np.ones(nx)
-            #        x0_min = -0*np.ones(nx)
-                    x0_max[-1] = 1.05
-                    x0_min[-1] = 0.95
-                    x0_mean = (0.5*(x0_max + x0_min))[..., np.newaxis]
-                    x0_cov = 1/12*np.diag((x0_max - x0_min)**2)
-                    
-                elif dist == "normal":
-                    
-                    #_, M_hat = gen_sample_dist_inf('normal', 20, mu_w=0*np.ones((ny, 1)), Sigma_w=M)
-                    #M_hat = M_hat + 1e-6*np.eye(ny)
-        #            M_hat = M
-        #            theta = 0.001 #Wasserstein ball radius
-                    #disturbance distribution parameters
-                    w_max = None
-                    w_min = None
-
-                    mu_w = 0*np.ones((nx, 1))
-                    Sigma_w= 0.01*np.eye(nx)
-                    #initial state distribution parameters
-                    x0_max = None
-                    x0_min = None
-                    x0_mean = np.zeros((nx,1))
-                    x0_mean[-1] = 1
-                    x0_cov = 0.01*np.eye(nx)
-                elif dist == "quadratic":
-                    w_max = 0.15*np.ones(nx)
-                    w_min = -0.15*np.ones(nx)
-                    mu_w = (0.5*(w_max + w_min))[..., np.newaxis]
-                    Sigma_w = 3.0/20.0*np.diag((w_max - w_min)**2)
-                    #initial state distribution parameters
-                    x0_max = 0.05*np.ones(nx)
-                    x0_min = -0.05*np.ones(nx)
-                    x0_max[-1] = 1.05
-                    x0_min[-1] = 0.95
-                    x0_mean = (0.5*(x0_max + x0_min))[..., np.newaxis]
-                    x0_cov = 3.0/20.0 *np.diag((x0_max - x0_min)**2)               
-                elif dist == "multimodal":
-                    M = 0.2*np.eye(ny) #observation noise covariance
-                    #theta = 0.8 #Wasserstein ball radius
-                    #disturbance distribution parameters
-                    w_max = None
-                    w_min = None
-                    mu_w = [np.array([[-0.03],[-0.1], [0.1], [0.2]]), np.array([[0.02],[0.05], [0.01], [0.01]])]
-                    Sigma_w= [np.array( [[0.01,  0.005, 0.01, 0.02],
-                                [0.005, 0.01,  0.001, 0.01],
-                                [0.01,  0.001, 0.02, 0.01],
-                                [0.001, 0.01, 0.001, 0.03]]),
-                            np.array([[0.04,  0.003, 0.002, 0.02],
-                                [0.002, 0.003,  0.01, 0.001],
-                                [0.001,  0.001, 0.02, 0.001],
-                                [0.002, 0.001, 0.001, 0.004]])]
-                    #initial state distribution parameters
-                    x0_max = None
-                    x0_min = None
-                    x0_mean = np.array([[-1],[-1],[1],[1]])
-                    x0_cov = 0.001*np.eye(nx)
-                    
-                #-------Noise distribution ---------#
-                if noise_dist == "uniform":
-                    #theta = 0.1 # 0.1!!
-                    v_min = -0.3*np.ones(ny)
-                    v_max = 0.5*np.ones(ny)
-                    mu_v = (0.5*(v_max + v_min))[..., np.newaxis]
-                    M = 1/12*np.diag((v_max - v_min)**2)
-                elif noise_dist =="normal":
-                    #theta = 0.05 # 0.05!!
-                    v_max = None
-                    v_min = None
-                    M = 0.01*np.eye(ny) #observation noise covariance
-                    mu_v = 0.01*np.zeros((ny, 1))
-                elif noise_dist =="quadratic":
-                    v_min = -0.3*np.ones(ny)
-                    v_max = 0.5*np.ones(ny)
-                    mu_v = (0.5*(v_max + v_min))[..., np.newaxis]
-                    M = 3.0/20.0 *np.diag((v_max-v_min)**2)
-                    #theta = 0.1 # 0.1!!
-                    
-                    
-                #-------Estimate the nominal distribution-------
-                if out_of_sample:
-                    mu_hat = []
-                    Sigma_hat = []
-                    for i in range(num_sim):
-                        if infinite:
-                            mu_hat_, Sigma_hat_ = gen_sample_dist_inf(dist, num_samples, mu_w=mu_w, Sigma_w=Sigma_w, w_max=w_max, w_min=w_min)
-        #                    if dist=="normal":
-                            mu_hat_ = 0*np.ones((nx, 1))
-                        else:
-                            mu_hat_, Sigma_hat_ = gen_sample_dist(dist, T, num_samples, mu_w=mu_w, Sigma_w=Sigma_w, w_max=w_max, w_min=w_min)
-                        mu_hat.append(mu_hat_)
-                        Sigma_hat.append(Sigma_hat_)
-                else:
-=======
     #theta_list = [0.001, 0.01, 0.05, 0.1, 0.5, 1, 2]
     #theta_w_list = [0.00001, 0.0001, 0.0005, 0.0015, 0.001, 0.00015, 0.002, 0.0025, 0.005, 0.01, 0.015, 0.05, 0.1, 1]
     theta_w_list =[0.1]
     theta_list = [1]
-    #noisedist = [noise_dist1] # if you want to test only one distribution
-    noisedist = ["normal", "uniform","quadratic"] # if you want to test 3 distribution at once
+    noisedist = [noise_dist1] # if you want to test only one distribution
+    #noisedist = ["normal", "uniform","quadratic"] # if you want to test 3 distribution at once
     for theta_w in theta_w_list:
         for noise_dist in noisedist:
             for theta in theta_list:
@@ -322,7 +174,6 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
                     print("number of disturbance sample : ", num_samples)
                     #theta = 0.05
                     #Path for saving the results
->>>>>>> bfae5ea20d2cd2e8d8448e0f1120c839dd4f6294
                     if infinite:
                         if sim_type == "multiple":
                             if out_of_sample:
@@ -461,9 +312,9 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
                     
                     #v_mean_hat = 0*np.ones((T+1, ny, 1))
                     #print(v_mean_hat[0])
-                    M_hat = M_hat + 1e-8*np.eye(ny) # to prevent numerical error (if matrix have less than ny samples, it is singular)
+                    M_hat = M_hat + 1e-6*np.eye(ny) # to prevent numerical error (if matrix have less than ny samples, it is singular)
                     #print("rank of M : ", np.linalg.matrix_rank(M_hat[0]))
-                    #Sigma_hat = Sigma_hat + 1e-6*np.eye(nx)
+                    Sigma_hat = Sigma_hat + 1e-6*np.eye(nx)
                     #print(M_hat[0].)
                     
                     #-------Create a random system-------
