@@ -245,6 +245,7 @@ class WDRC:
 #        params[2].value = np.linalg.cholesky(Sigma_hat)
         #params[2].value = np.real(scipy.linalg.sqrtm(Sigma_hat+ 1e-6*np.eye(self.nx)))
         #params[2].value = np.real(scipy.linalg.sqrtm(Sigma_hat))
+        #params[2].value = Sigma_hat + 1e-7*np.eye(self.nx)
         params[2].value = Sigma_hat
         params[3].value = x_cov
         

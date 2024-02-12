@@ -156,6 +156,7 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
     #theta_list = [1, 2]
     #theta_list = [0.1, 0.5, 1, 2, 5]
     theta_list = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0] # for param plot
+    #theta_list = [0.5] # for param plot
     #theta_w_list = [0.00001, 0.0001, 0.0005, 0.0015, 0.001, 0.00015, 0.002, 0.0025, 0.005, 0.01, 0.015, 0.05, 0.1, 1]
     theta_w_list =[0.1]
     #theta_list = [1]
@@ -201,8 +202,8 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
                         if dist =="uniform":
                 #            theta = 0.001 #Wasserstein ball radius
                             #disturbance distribution parameters
-                            w_max = 0.2*np.ones(nx)
-                            w_min = -0.2*np.ones(nx)
+                            w_max = 0.25*np.ones(nx)
+                            w_min = -0.15*np.ones(nx)
                             mu_w = (0.5*(w_max + w_min))[..., np.newaxis]
                             Sigma_w = 1/12*np.diag((w_max - w_min)**2)
                             #initial state distribution parameters
@@ -225,8 +226,8 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
                             w_max = None
                             w_min = None
 
-                            mu_w = 0*np.ones((nx, 1))
-                            Sigma_w= 0.01*np.eye(nx)
+                            mu_w = 0.03*np.ones((nx, 1))
+                            Sigma_w= 0.03*np.eye(nx)
                             #initial state distribution parameters
                             x0_max = None
                             x0_min = None
@@ -234,8 +235,8 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
                             x0_mean[-1] = 1
                             x0_cov = 0.01*np.eye(nx)
                         elif dist == "quadratic":
-                            w_max = 0.2*np.ones(nx)
-                            w_min = -0.2*np.ones(nx)
+                            w_max = 0.25*np.ones(nx)
+                            w_min = -0.15*np.ones(nx)
                             mu_w = (0.5*(w_max + w_min))[..., np.newaxis]
                             Sigma_w = 3.0/20.0*np.diag((w_max - w_min)**2)
                             #initial state distribution parameters
@@ -277,8 +278,8 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
                             #theta = 0.05 # 0.05!!
                             v_max = None
                             v_min = None
-                            M = 0.01*np.eye(ny) #observation noise covariance
-                            mu_v = 0.01*np.zeros((ny, 1))
+                            M = 0.03*np.eye(ny) #observation noise covariance
+                            mu_v = 0.03*np.zeros((ny, 1))
                         elif noise_dist =="quadratic":
                             v_min = -0.3*np.ones(ny)
                             v_max = 0.5*np.ones(ny)
@@ -318,7 +319,7 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
                         #print(v_mean_hat[0])
                         M_hat = M_hat + 1e-6*np.eye(ny) # to prevent numerical error (if matrix have less than ny samples, it is singular)
                         #print("rank of M : ", np.linalg.matrix_rank(M_hat[0]))
-                        #Sigma_hat = Sigma_hat + 1e-6*np.eye(nx)
+                        #Sigma_hat = Sigma_hat + 1e-7*np.eye(nx)
                         #print(M_hat[0].)
                         
                         #-------Create a random system-------
