@@ -403,7 +403,7 @@ class WDRC:
             y[t+1] = self.get_obs(x[t+1], true_v)
 
             #Update the state estimation (using the worst-case mean and covariance)
-            x_mean[t+1] = self.kalman_filter(self.v_mean_hat[t], self.M_hat[t], x_mean[t], self.x_cov[t], y[t+1], mu_wc[t], u=u[t])
+            x_mean[t+1] = self.kalman_filter(self.v_mean_hat[t], self.M_hat[t], x_mean[t], self.x_cov[t+1], y[t+1], mu_wc[t], u=u[t])
 
         #Compute the total cost
         J[self.T] = x[self.T].T @ self.Qf @ x[self.T]
