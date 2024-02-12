@@ -89,7 +89,7 @@ def summarize(lqg_lambda_values, lqg_theta_values, lqg_cost_values ,wdrc_lambda_
     # Set labels
     ax.set_xlabel(r'$\lambda$', fontsize=12)
     ax.set_ylabel(r'$\theta_v$', fontsize=12)
-    ax.set_zlabel(r'Cost', fontsize=12, rotation=90, labelpad=0)
+    ax.set_zlabel(r'Total Cost', fontsize=12, labelpad=1)
     #ax.set_title('Normal Disturbance and Noise Distributions', fontsize=14)
     
     # ax.set_xlim(min(drkf_lambda_values), max(drkf_lambda_values))
