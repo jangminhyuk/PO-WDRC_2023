@@ -102,6 +102,9 @@ def summarize_noise(num_noise_list, avg_cost_lqg, std_cost_lqg, avg_cost_wdrc, s
     
     plt.plot(t, J_drkf_wdrc_mean_10, 'tab:olive', ls="-.", label=r'$\theta_v=10$')
     plt.fill_between(t, J_drkf_wdrc_mean_10 + 0.25*J_drkf_wdrc_std_10, J_drkf_wdrc_mean_10 - 0.25*J_drkf_wdrc_std_10, facecolor='tab:olive', alpha=0.3)
+    
+    plt.plot(t, J_drkf_wdrc_mean_20, 'tab:olive', ls="--", label=r'$\theta_v=20$')
+    plt.fill_between(t, J_drkf_wdrc_mean_20 + 0.25*J_drkf_wdrc_std_20, J_drkf_wdrc_mean_20 - 0.25*J_drkf_wdrc_std_20, facecolor='tab:olive', alpha=0.3)
 
     plt.plot(t, J_lqr_mean, 'tab:red', label='LQG')
     plt.fill_between(t, J_lqr_mean + 0.25*J_lqr_std, J_lqr_mean - 0.25*J_lqr_std, facecolor='tab:red', alpha=0.3)
