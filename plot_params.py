@@ -12,6 +12,8 @@ from scipy.interpolate import griddata
 import matplotlib.ticker as ticker
 
 def summarize(lqg_lambda_values, lqg_theta_values, lqg_cost_values ,wdrc_lambda_values, wdrc_theta_values, wdrc_cost_values , drkf_lambda_values, drkf_theta_values, drkf_cost_values , dist, noise_dist, path):
+    surfaces = []
+    labels = []
     # Create 3D plot
     plt.rcParams.update({
     "text.usetex": True,
@@ -36,8 +38,9 @@ def summarize(lqg_lambda_values, lqg_theta_values, lqg_cost_values ,wdrc_lambda_
     #ax.scatter(lqg_lambda_values, lqg_theta_values, lqg_cost_values, label='LQG')
 
     # Plot smooth surface - LQG
-    ax.plot_surface(lambda_grid_lqg, theta_grid_lqg, cost_grid_lqg, alpha=0.4, color='red', label='LQG')
-    
+    surface_lqg =ax.plot_surface(lambda_grid_lqg, theta_grid_lqg, cost_grid_lqg, alpha=0.4, color='red', label='LQG')
+    surfaces.append(surface_lqg)
+    labels.append('LQG')
     #-------------------------
     
     # Repeat the process for WDRC
@@ -55,7 +58,9 @@ def summarize(lqg_lambda_values, lqg_theta_values, lqg_cost_values ,wdrc_lambda_
     #ax.scatter(wdrc_lambda_values, wdrc_theta_values, wdrc_cost_values, label='WDRC')
 
     # Plot smooth surface - WDRC
-    ax.plot_surface(lambda_grid_wdrc, theta_grid_wdrc, cost_grid_wdrc, alpha=0.3, color='blue', label='WDRC')
+    surface_wdrc =ax.plot_surface(lambda_grid_wdrc, theta_grid_wdrc, cost_grid_wdrc, alpha=0.3, color='blue', label='WDRC')
+    surfaces.append(surface_wdrc)
+    labels.append('WDRC')
     #--------------
     # Plot DRKF data points
     #ax.scatter(drkf_lambda_values, drkf_theta_values, drkf_cost_values, label='DRKF')
@@ -69,9 +74,11 @@ def summarize(lqg_lambda_values, lqg_theta_values, lqg_cost_values ,wdrc_lambda_
         (drkf_lambda_values, drkf_theta_values), drkf_cost_values,
         (lambda_grid_drkf, theta_grid_drkf), method='cubic'
     )
-
+    
     # Plot smooth surface - DRKF
-    ax.plot_surface(lambda_grid_drkf, theta_grid_drkf, cost_grid_drkf, alpha=0.5, color='green', label='DRKF-WDRC')
+    surface_drkf = ax.plot_surface(lambda_grid_drkf, theta_grid_drkf, cost_grid_drkf, alpha=0.5, color='green', label='DRKF-WDRC')
+    surfaces.append(surface_drkf)
+    labels.append('DRKF-WDRC')
     ##
     desired_ticks = 5
     
@@ -85,11 +92,12 @@ def summarize(lqg_lambda_values, lqg_theta_values, lqg_cost_values ,wdrc_lambda_
     ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, pos: f'{x:.1f}'))
     ##
     
-    ax.legend()
+    ax.legend(handles=surfaces, labels=labels)
+    
     # Set labels
     ax.set_xlabel(r'$\lambda$', fontsize=12)
     ax.set_ylabel(r'$\theta_v$', fontsize=12)
-    ax.set_zlabel(r'Cost', fontsize=12, rotation=90, labelpad=0)
+    ax.set_zlabel(r'Total Cost', fontsize=12, rotation=90, labelpad=1)
     #ax.set_title('Normal Disturbance and Noise Distributions', fontsize=14)
     
     # ax.set_xlim(min(drkf_lambda_values), max(drkf_lambda_values))

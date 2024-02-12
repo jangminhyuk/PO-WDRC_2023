@@ -211,19 +211,19 @@ class WDRC:
         
             P_var = cp.Parameter((self.nx,self.nx))
             S_var = cp.Parameter((self.nx,self.nx))
-            Sigma_hat_12_var = cp.Parameter((self.nx,self.nx))
-            #Sigma_hat = cp.Parameter((self.nx,self.nx))
+            #Sigma_hat_12_var = cp.Parameter((self.nx,self.nx))
+            Sigma_hat = cp.Parameter((self.nx,self.nx))
             X_bar = cp.Parameter((self.nx,self.nx))
             
             obj = cp.Maximize(cp.trace((P_var - lambda_*np.eye(self.nx)) @ Sigma) + 2*lambda_*cp.trace(Y) + cp.trace(S_var @ X))
             
             constraints = [
-                    cp.bmat([[Sigma_hat_12_var @ Sigma @ Sigma_hat_12_var, Y],
-                             [Y, np.eye(self.nx)]
-                             ]) >> 0,
-                    # cp.bmat([[Sigma_hat, Y],
-                    #      [Y.T, Sigma]
-                    #      ]) >> 0,
+                    # cp.bmat([[Sigma_hat_12_var @ Sigma @ Sigma_hat_12_var, Y],
+                    #          [Y, np.eye(self.nx)]
+                    #          ]) >> 0,
+                    cp.bmat([[Sigma_hat, Y],
+                         [Y.T, Sigma]
+                         ]) >> 0,
                     Sigma >> 0,
                     X_pred >> 0,
                     cp.bmat([[X_pred - X, X_pred @ self.C.T],
@@ -244,8 +244,9 @@ class WDRC:
         params[1].value = S
 #        params[2].value = np.linalg.cholesky(Sigma_hat)
         #params[2].value = np.real(scipy.linalg.sqrtm(Sigma_hat+ 1e-6*np.eye(self.nx)))
-        params[2].value = np.real(scipy.linalg.sqrtm(Sigma_hat))
-        #params[2].value = Sigma_hat
+        #params[2].value = np.real(scipy.linalg.sqrtm(Sigma_hat))
+        #params[2].value = Sigma_hat + 1e-7*np.eye(self.nx)
+        params[2].value = Sigma_hat
         params[3].value = x_cov
         
         sdp_prob.solve(solver=cp.MOSEK)

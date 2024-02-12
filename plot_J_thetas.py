@@ -14,7 +14,7 @@ import pickle
 
 def summarize_noise(num_noise_list, avg_cost_lqg, std_cost_lqg, avg_cost_wdrc, std_cost_wdrc, \
                 avg_cost_drkf_wdrc_0_5, std_cost_drkf_wdrc_0_5, avg_cost_drkf_wdrc_1, std_cost_drkf_wdrc_1,\
-                    avg_cost_drkf_wdrc_2, std_cost_drkf_wdrc_2, avg_cost_drkf_wdrc_5, std_cost_drkf_wdrc_5, dist, noise_dist, path):
+                    avg_cost_drkf_wdrc_2, std_cost_drkf_wdrc_2, avg_cost_drkf_wdrc_5, std_cost_drkf_wdrc_5, avg_cost_drkf_wdrc_10, std_cost_drkf_wdrc_10, dist, noise_dist, path):
     
     plt.rcParams.update({
     "text.usetex": True,
@@ -34,6 +34,7 @@ def summarize_noise(num_noise_list, avg_cost_lqg, std_cost_lqg, avg_cost_wdrc, s
     J_drkf_wdrc_mean_1 = np.array(avg_cost_drkf_wdrc_1)
     J_drkf_wdrc_mean_2 = np.array(avg_cost_drkf_wdrc_2)
     J_drkf_wdrc_mean_5 = np.array(avg_cost_drkf_wdrc_5)
+    J_drkf_wdrc_mean_10 = np.array(avg_cost_drkf_wdrc_10)
     
     J_lqr_std = np.array(std_cost_lqg)
     J_wdrc_std = np.array(std_cost_wdrc)
@@ -45,6 +46,7 @@ def summarize_noise(num_noise_list, avg_cost_lqg, std_cost_lqg, avg_cost_wdrc, s
     J_drkf_wdrc_std_1 = np.array(std_cost_drkf_wdrc_1)
     J_drkf_wdrc_std_2 = np.array(std_cost_drkf_wdrc_2)
     J_drkf_wdrc_std_5 = np.array(std_cost_drkf_wdrc_5)
+    J_drkf_wdrc_std_10 = np.array(std_cost_drkf_wdrc_10)
     
     # J_true_mean = np.array(avg_cost_true*len(t))
     # J_true_lqr_mean = np.array(avg_cost_true_lqg*len(t))
@@ -95,6 +97,9 @@ def summarize_noise(num_noise_list, avg_cost_lqg, std_cost_lqg, avg_cost_wdrc, s
 
     plt.plot(t, J_drkf_wdrc_mean_5, 'tab:green', label=r'$\theta_v=5$')
     plt.fill_between(t, J_drkf_wdrc_mean_5 + 0.25*J_drkf_wdrc_std_5, J_drkf_wdrc_mean_5 - 0.25*J_drkf_wdrc_std_5, facecolor='tab:green', alpha=0.3)
+    
+    plt.plot(t, J_drkf_wdrc_mean_10, 'tab:olive', label=r'$\theta_v=10$')
+    plt.fill_between(t, J_drkf_wdrc_mean_10 + 0.25*J_drkf_wdrc_std_10, J_drkf_wdrc_mean_10 - 0.25*J_drkf_wdrc_std_10, facecolor='tab:olive', alpha=0.3)
 
     plt.plot(t, J_lqr_mean, 'tab:red', label='LQG')
     plt.fill_between(t, J_lqr_mean + 0.25*J_lqr_std, J_lqr_mean - 0.25*J_lqr_std, facecolor='tab:red', alpha=0.3)
@@ -220,10 +225,16 @@ if __name__ == "__main__":
     std_cost_drkf_wdrc_5 = pickle.load(std_cost_drkf_wdrc_file_5)
     std_cost_drkf_wdrc_file_5.close()
     
-    
+    ##----------------temp
+    avg_cost_drkf_wdrc_file_10 = open(path + '/drkf_wdrc_mean_10.pkl', 'rb' )
+    avg_cost_drkf_wdrc_10 = pickle.load(avg_cost_drkf_wdrc_file_10)
+    avg_cost_drkf_wdrc_file_10.close()
+    std_cost_drkf_wdrc_file_10 = open(path + '/drkf_wdrc_std_10.pkl', 'rb' )
+    std_cost_drkf_wdrc_10 = pickle.load(std_cost_drkf_wdrc_file_10)
+    std_cost_drkf_wdrc_file_10.close()
     
     theta_list = [0.001, 0.01, 0.05, 0.1, 0.5, 1, 2]
     
     summarize_noise(num_noise_list, avg_cost_lqg, std_cost_lqg, avg_cost_wdrc, std_cost_wdrc, \
          avg_cost_drkf_wdrc_0_5, std_cost_drkf_wdrc_0_5, avg_cost_drkf_wdrc_1, std_cost_drkf_wdrc_1,\
-                    avg_cost_drkf_wdrc_2, std_cost_drkf_wdrc_2, avg_cost_drkf_wdrc_5, std_cost_drkf_wdrc_5, args.dist, args.noise_dist, path)
+                    avg_cost_drkf_wdrc_2, std_cost_drkf_wdrc_2, avg_cost_drkf_wdrc_5, std_cost_drkf_wdrc_5, avg_cost_drkf_wdrc_10, std_cost_drkf_wdrc_10, args.dist, args.noise_dist, path)
