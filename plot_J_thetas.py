@@ -14,7 +14,7 @@ import pickle
 
 def summarize_noise(num_noise_list, avg_cost_lqg, std_cost_lqg, avg_cost_wdrc, std_cost_wdrc, \
                 avg_cost_drkf_wdrc_0_5, std_cost_drkf_wdrc_0_5, avg_cost_drkf_wdrc_1, std_cost_drkf_wdrc_1,\
-                    avg_cost_drkf_wdrc_2, std_cost_drkf_wdrc_2, avg_cost_drkf_wdrc_5, std_cost_drkf_wdrc_5, avg_cost_drkf_wdrc_10, std_cost_drkf_wdrc_10, avg_cost_drkf_wdrc_20, std_cost_drkf_wdrc_20, dist, noise_dist, path):
+                    avg_cost_drkf_wdrc_2, std_cost_drkf_wdrc_2, avg_cost_drkf_wdrc_5, std_cost_drkf_wdrc_5, avg_cost_drkf_wdrc_10, std_cost_drkf_wdrc_10,  avg_cost_drkf_wdrc_20, std_cost_drkf_wdrc_20, dist, noise_dist, path):
     
     plt.rcParams.update({
     "text.usetex": True,
@@ -100,12 +100,9 @@ def summarize_noise(num_noise_list, avg_cost_lqg, std_cost_lqg, avg_cost_wdrc, s
     plt.plot(t, J_drkf_wdrc_mean_5, 'tab:green', label=r'$\theta_v=5$')
     plt.fill_between(t, J_drkf_wdrc_mean_5 + 0.25*J_drkf_wdrc_std_5, J_drkf_wdrc_mean_5 - 0.25*J_drkf_wdrc_std_5, facecolor='tab:green', alpha=0.3)
     
-    plt.plot(t, J_drkf_wdrc_mean_10, 'tab:olive', label=r'$\theta_v=10$')
+    plt.plot(t, J_drkf_wdrc_mean_10, 'tab:olive', ls="-.", label=r'$\theta_v=10$')
     plt.fill_between(t, J_drkf_wdrc_mean_10 + 0.25*J_drkf_wdrc_std_10, J_drkf_wdrc_mean_10 - 0.25*J_drkf_wdrc_std_10, facecolor='tab:olive', alpha=0.3)
 
-    plt.plot(t, J_drkf_wdrc_mean_20, 'tab:olive',ls="--", label=r'$\theta_v=20$')
-    plt.fill_between(t, J_drkf_wdrc_mean_20 + 0.25*J_drkf_wdrc_std_20, J_drkf_wdrc_mean_20 - 0.25*J_drkf_wdrc_std_20, facecolor='tab:olive', alpha=0.3)
-    
     plt.plot(t, J_lqr_mean, 'tab:red', label='LQG')
     plt.fill_between(t, J_lqr_mean + 0.25*J_lqr_std, J_lqr_mean - 0.25*J_lqr_std, facecolor='tab:red', alpha=0.3)
     
