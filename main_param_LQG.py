@@ -200,8 +200,8 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
                         if dist =="uniform":
                 #            theta = 0.001 #Wasserstein ball radius
                             #disturbance distribution parameters
-                            w_max = 0.2*np.ones(nx)
-                            w_min = -0.2*np.ones(nx)
+                            w_max = 0.25*np.ones(nx)
+                            w_min = -0.15*np.ones(nx)
                             mu_w = (0.5*(w_max + w_min))[..., np.newaxis]
                             Sigma_w = 1/12*np.diag((w_max - w_min)**2)
                             #initial state distribution parameters
@@ -224,8 +224,8 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
                             w_max = None
                             w_min = None
 
-                            mu_w = 0.05*np.ones((nx, 1))
-                            Sigma_w= 0.05*np.eye(nx)
+                            mu_w = 0.03*np.ones((nx, 1))
+                            Sigma_w= 0.03*np.eye(nx)
                             #initial state distribution parameters
                             x0_max = None
                             x0_min = None
@@ -233,8 +233,8 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
                             x0_mean[-1] = 1
                             x0_cov = 0.01*np.eye(nx)
                         elif dist == "quadratic":
-                            w_max = 0.2*np.ones(nx)
-                            w_min = -0.2*np.ones(nx)
+                            w_max = 0.25*np.ones(nx)
+                            w_min = -0.15*np.ones(nx)
                             mu_w = (0.5*(w_max + w_min))[..., np.newaxis]
                             Sigma_w = 3.0/20.0*np.diag((w_max - w_min)**2)
                             #initial state distribution parameters
@@ -276,8 +276,8 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
                             #theta = 0.05 # 0.05!!
                             v_max = None
                             v_min = None
-                            M = 0.1*np.eye(ny) #observation noise covariance
-                            mu_v = 0.1*np.zeros((ny, 1))
+                            M = 0.03*np.eye(ny) #observation noise covariance
+                            mu_v = 0.03*np.zeros((ny, 1))
                         elif noise_dist =="quadratic":
                             v_min = -0.3*np.ones(ny)
                             v_max = 0.5*np.ones(ny)

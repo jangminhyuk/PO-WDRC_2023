@@ -10,6 +10,7 @@ import re
 from mpl_toolkits.mplot3d import Axes3D
 from scipy.interpolate import griddata
 import matplotlib.ticker as ticker
+from scipy.interpolate import interp1d
 
 def summarize(lqg_lambda_values, lqg_theta_values, lqg_cost_values ,wdrc_lambda_values, wdrc_theta_values, wdrc_cost_values , drkf_lambda_values, drkf_theta_values, drkf_cost_values , dist, noise_dist, path):
     surfaces = []
@@ -46,13 +47,14 @@ def summarize(lqg_lambda_values, lqg_theta_values, lqg_cost_values ,wdrc_lambda_
     # Repeat the process for WDRC
     # Interpolate cost values for smooth surface - WDRC
     lambda_grid_wdrc, theta_grid_wdrc = np.meshgrid(
-        np.linspace(min(wdrc_lambda_values), max(wdrc_lambda_values), 100),
-        np.linspace(min(wdrc_theta_values), max(wdrc_theta_values), 100)
+    np.linspace(min(wdrc_lambda_values), max(wdrc_lambda_values), 100),
+    np.linspace(min(wdrc_theta_values), max(wdrc_theta_values), 100)
     )
     cost_grid_wdrc = griddata(
         (wdrc_lambda_values, wdrc_theta_values), wdrc_cost_values,
-        (lambda_grid_wdrc, theta_grid_wdrc), method='cubic'
+        (lambda_grid_wdrc, theta_grid_wdrc), method='linear'  # Use linear interpolation
     )
+
 
     # Plot data points - WDRC
     #ax.scatter(wdrc_lambda_values, wdrc_theta_values, wdrc_cost_values, label='WDRC')
@@ -95,18 +97,16 @@ def summarize(lqg_lambda_values, lqg_theta_values, lqg_cost_values ,wdrc_lambda_
     ax.legend(handles=surfaces, labels=labels)
     
     # Set labels
-    ax.set_xlabel(r'$\lambda$', fontsize=12)
-    ax.set_ylabel(r'$\theta_v$', fontsize=12)
-    ax.set_zlabel(r'Total Cost', fontsize=12, rotation=90, labelpad=1)
-    #ax.set_title('Normal Disturbance and Noise Distributions', fontsize=14)
-    
-    # ax.set_xlim(min(drkf_lambda_values), max(drkf_lambda_values))
-    # ax.set_ylim(min(drkf_theta_values), max(drkf_theta_values))
-    # ax.set_zlim(min(drkf_cost_values), max(drkf_cost_values))
-    
-    ax.view_init(elev=20, azim=30)
-    #plt.show()
-    fig.savefig(path + 'params_{}_{}.pdf'.format(dist, noise_dist), dpi=150, bbox_inches="tight", pad_inches=0.2)
+    ax.set_xlabel(r'$\lambda$', fontsize=16)
+    ax.set_ylabel(r'$\theta_v$', fontsize=16)
+    ax.set_zlabel(r'Total Cost', fontsize=16, rotation=180, labelpad=5)  # Rotate the label 90 degrees
+    # ax.set_title('Normal Disturbance and Noise Distributions', fontsize=14)
+
+    # Adjust elevation angle to remove extra white space above and below the plot
+    ax.view_init(elev=20, azim=30)  # Adjust the 'elev' parameter as needed
+
+    # Save the figure
+    fig.savefig(path + 'params_{}_{}.pdf'.format(dist, noise_dist), dpi=150, bbox_inches="tight", pad_inches=0.35)
     #plt.clf()
 
 
@@ -178,6 +178,7 @@ if __name__ == "__main__":
                 wdrc_file = open(path + filename, 'rb')
                 wdrc_cost = pickle.load(wdrc_file)
                 wdrc_file.close()
+                #print(wdrc_cost[0])
                 for aux_theta in theta_list:
                     wdrc_lambda_values.append(lambda_value)
                     wdrc_theta_values.append(aux_theta) # since wdrc not affected by theta v, just add auxilary theta for plot

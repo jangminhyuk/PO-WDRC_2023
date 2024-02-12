@@ -154,14 +154,14 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
     R = np.load("./inputs/R.npy")
     
     #theta_list = [1, 2]
-    theta_list = [0.5, 1, 2, 5, 10]
+    theta_list = [0.5, 1, 2, 5, 10, 20]
     #theta_list = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0] # for param plot
     #theta_w_list = [0.00001, 0.0001, 0.0005, 0.0015, 0.001, 0.00015, 0.002, 0.0025, 0.005, 0.01, 0.015, 0.05, 0.1, 1]
     theta_w_list =[0.1]
     #theta_list = [1]
     noisedist = [noise_dist1] # if you want to test only one distribution
     #noisedist = ["normal", "uniform","quadratic"] # if you want to test 3 distribution at once
-    lambda_list = [1634]
+    lambda_list = [1500]
     #lambda_list = [500, 1000, 1500, 2000, 2500]
     for lambda_ in lambda_list:
         for theta_w in theta_w_list:
@@ -201,8 +201,8 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
                         if dist =="uniform":
                 #            theta = 0.001 #Wasserstein ball radius
                             #disturbance distribution parameters
-                            w_max = 0.2*np.ones(nx)
-                            w_min = -0.2*np.ones(nx)
+                            w_max = 0.25*np.ones(nx)
+                            w_min = -0.15*np.ones(nx)
                             mu_w = (0.5*(w_max + w_min))[..., np.newaxis]
                             Sigma_w = 1/12*np.diag((w_max - w_min)**2)
                             #initial state distribution parameters
@@ -225,8 +225,8 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
                             w_max = None
                             w_min = None
 
-                            mu_w = 0.05*np.ones((nx, 1))
-                            Sigma_w= 0.05*np.eye(nx)
+                            mu_w = 0.03*np.ones((nx, 1))
+                            Sigma_w= 0.03*np.eye(nx)
                             #initial state distribution parameters
                             x0_max = None
                             x0_min = None
@@ -234,8 +234,8 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
                             x0_mean[-1] = 1
                             x0_cov = 0.01*np.eye(nx)
                         elif dist == "quadratic":
-                            w_max = 0.2*np.ones(nx)
-                            w_min = -0.2*np.ones(nx)
+                            w_max = 0.25*np.ones(nx)
+                            w_min = -0.15*np.ones(nx)
                             mu_w = (0.5*(w_max + w_min))[..., np.newaxis]
                             Sigma_w = 3.0/20.0*np.diag((w_max - w_min)**2)
                             #initial state distribution parameters
@@ -277,8 +277,8 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
                             #theta = 0.05 # 0.05!!
                             v_max = None
                             v_min = None
-                            M = 0.1*np.eye(ny) #observation noise covariance
-                            mu_v = 0.1*np.zeros((ny, 1))
+                            M = 0.03*np.eye(ny) #observation noise covariance
+                            mu_v = 0.03*np.zeros((ny, 1))
                         elif noise_dist =="quadratic":
                             v_min = -0.3*np.ones(ny)
                             v_max = 0.5*np.ones(ny)
