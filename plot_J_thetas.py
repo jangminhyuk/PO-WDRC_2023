@@ -73,7 +73,7 @@ def summarize_noise(num_noise_list, avg_cost_lqg, std_cost_lqg, avg_cost_wdrc, s
     # plt.plot(t, J_true_mean, '#103E5E', linestyle='dashed', label='WDRC (true)')
     # plt.fill_between(t, J_true_mean + 0.25*J_true_std, J_true_mean - 0.25*J_true_std, facecolor='#103E5E', alpha=0.3)
     
-    plt.title('{} system disturbance, {} observation noise'.format(dist, noise_dist))
+    
     #----------------------------------------------
     
     # plt.plot(t, J_drkf_wdrc_mean_0_001, 'tab:green', label=r'$\theta_v=0.001$')
@@ -116,6 +116,7 @@ def summarize_noise(num_noise_list, avg_cost_lqg, std_cost_lqg, avg_cost_wdrc, s
     
     plt.xlabel(r'Noise Sample Size', fontsize=16)
     plt.ylabel(r'Total Cost', fontsize=16)
+    plt.title('{} system disturbance, {} observation noise'.format(dist, noise_dist), fontsize=16)
     plt.legend(fontsize=16)
     plt.grid()
     plt.xlim([t[0], t[-1]])

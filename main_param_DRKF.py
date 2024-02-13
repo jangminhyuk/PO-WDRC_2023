@@ -226,7 +226,7 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
                             w_max = None
                             w_min = None
 
-                            mu_w = 0.03*np.ones((nx, 1))
+                            mu_w = 0.02*np.ones((nx, 1))
                             Sigma_w= 0.03*np.eye(nx)
                             #initial state distribution parameters
                             x0_max = None
