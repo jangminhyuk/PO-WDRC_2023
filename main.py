@@ -160,6 +160,10 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
     theta_list = [10]
     noisedist = [noise_dist1] # if you want to test only one distribution
     #noisedist = ["normal", "uniform","quadratic"] # if you want to test 3 distribution at once
+    if dist=="uniform" or dist=="quadratic":
+        lambda_=2000
+    else:
+        lambda_=1500
     for theta_w in theta_w_list:
         for noise_dist in noisedist:
             for theta in theta_list:

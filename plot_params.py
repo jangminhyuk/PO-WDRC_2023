@@ -96,18 +96,17 @@ def summarize(lqg_lambda_values, lqg_theta_values, lqg_cost_values ,wdrc_lambda_
     ax.legend(handles=surfaces, labels=labels)
     
     # Set labels
-    ax.set_xlabel(r'$\lambda$', fontsize=12)
-    ax.set_ylabel(r'$\theta_v$', fontsize=12)
-    ax.set_zlabel(r'Total Cost', fontsize=12, rotation=90, labelpad=1)
-    #ax.set_title('Normal Disturbance and Noise Distributions', fontsize=14)
-    
+    ax.set_xlabel(r'$\lambda$', fontsize=16)
+    ax.set_ylabel(r'$\theta_v$', fontsize=16)
+    ax.set_zlabel(r'Total Cost', fontsize=16, rotation=90, labelpad=5)
+    ax.set_title('{} system disturbance, {} observation noise'.format(dist, noise_dist), fontsize=16)
     # ax.set_xlim(min(drkf_lambda_values), max(drkf_lambda_values))
     # ax.set_ylim(min(drkf_theta_values), max(drkf_theta_values))
     # ax.set_zlim(min(drkf_cost_values), max(drkf_cost_values))
     
     ax.view_init(elev=20, azim=30)
     #plt.show()
-    fig.savefig(path + 'params_{}_{}.pdf'.format(dist, noise_dist), dpi=150, bbox_inches="tight", pad_inches=0.2)
+    fig.savefig(path + 'params_{}_{}.pdf'.format(dist, noise_dist), dpi=150, bbox_inches="tight", pad_inches=0.35)
     #plt.clf()
 
 
