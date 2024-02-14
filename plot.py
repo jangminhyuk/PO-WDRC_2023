@@ -158,11 +158,11 @@ def summarize(out_lq_list, out_dr_list, out_drkf_list, out_mmse_list, dist, nois
             
                 
             plt.xlabel(r'$t$', fontsize=22)
-            # if i<=9:
-            #     plt.ylabel(r'$\Delta \delta_{{{}}}$'.format(i+1), fontsize=22)
-            # else:
-            #     plt.ylabel(r'$\Delta \omega_{{{}}}$'.format(i-9), fontsize=22)
-            plt.ylabel(r'$x_{{{}}}$'.format(i+1), fontsize=22)
+            if i<=9:
+                plt.ylabel(r'$\Delta \delta_{{{}}}$'.format(i+1), fontsize=22)
+            else:
+                plt.ylabel(r'$\Delta \omega_{{{}}}$'.format(i-9), fontsize=22)
+            #plt.ylabel(r'$x_{{{}}}$'.format(i+1), fontsize=22)
             plt.legend(fontsize=20)
             plt.grid()
             plt.xticks(fontsize=20)
