@@ -426,22 +426,7 @@ class DRKF_WDRC_test:
         for t in range(self.T):
             print("DRKF WDRC Offline step : ",t,"/",self.T)
             self.x_cov[t+1], self.S_xx[t+1], self.S_xy[t+1], self.S_yy[t+1], self.sigma_wc[t] = self.DR_kalman_filter_cov(self.P[t+1], self.S[t+1], self.M_hat[t+1], self.x_cov[t], self.Sigma_hat[t])
-            # sdp_prob = self.gen_sdp(self.lambda_, self.M_hat[t])
-            # sigma_wc[t], X_wc, status = self.solve_sdp(sdp_prob, self.x_cov[t], self.P[t+1], self.S[t+1], self.Sigma_hat[t])
-            # if status in ["infeasible", "unbounded"]:
-            #     print(status, 'False!!!!!!!!!!!!!')
-            # #self.x_cov[t+1], self.S_xx[t+1], self.S_xy[t+1], self.S_yy[t+1] = self.DR_kalman_filter_cov(self.M_hat[t], self.x_cov[t], self.Sigma_hat[t]) #choice 1
-            # self.x_cov[t+1], self.S_opt[t+1], self.S_xx[t+1], self.S_xy[t+1], self.S_yy[t+1] = self.DR_kalman_filter_cov(self.M_hat[t], self.x_cov[t], sigma_wc[t]) #choice 2 !!!
-            # #self.x_cov[t+1], self.S_opt[t+1], self.S_xx[t+1], self.S_xy[t+1], self.S_yy[t+1] = self.DR_kalman_filter_cov(self.M_hat[t], X_wc, sigma_wc[t]) #choice 3
             
-            # for i in range(0): # 0 now!!! no repeat!!!
-            #     self.x_cov[t+1], self.S_opt[t+1], self.S_xx[t+1], self.S_xy[t+1], self.S_yy[t+1] = self.DR_kalman_filter_cov_repeat(self.S_opt[t+1]) #choice 4 !! repeat using S[t+1]
-            
-            #print("x_cov[] norm : ", np.linalg.norm(self.x_cov[t+1]))
-            #print("sigma_wc[t] norm : ", np.linalg.norm(self.sigma_wc[t]))
-#            if np.min(self.C @ (self.A @ x_cov[t] @ self.A + sigma_wc[t]) @ self.C.T + self.M) < 0:
-#                print('False!!!!!!!!!!!!!')
-#                break
             #print('old:', self.g[t], 'new:', sigma_wc[t])
 
     def forward(self):
