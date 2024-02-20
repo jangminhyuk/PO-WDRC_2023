@@ -6,12 +6,12 @@ import matplotlib.pyplot as plt
 import argparse
 import pickle
 
-def summarize(out_lq_list, out_dr_list, out_drkf_list, out_mmse_list, dist, noise_dist, path, num, plot_results=True, wdrc = True, drkf=False, mmse=False, application="Nothing"):
+def summarize(out_lq_list, out_dr_list, out_drkf_list, out_mmse_list, dist, noise_dist, path, num, plot_results=True, wdrc = True, drkf=False, drlqc=False, application="Nothing"):
     x_lqr_list, J_lqr_list, y_lqr_list, u_lqr_list = [], [], [], []
     x_list, J_list, y_list, u_list = [], [], [], [] # original wdrc with ordinary Kalman Filter
     x_drkf_list, J_drkf_list, y_drkf_list, u_drkf_list = [], [], [], [] # wdrc with Distributionally Robust kalman Filter (neurips)
-    x_mmse_list, J_mmse_list, y_mmse_list, u_mmse_list = [], [], [], [] # wdrc with Distributionally Robust MMSE estimation problem (Adversial Anayltics)
-    time_list, time_lqr_list, time_drkf_list, time_mmse_list = [], [], [], []
+    x_drlqc_list, J_drlqc_list, y_drlqc_list, u_drlqc_list = [], [], [], []
+    time_list, time_lqr_list, time_drkf_list, time_drlqc_list = [], [], [], []
 #    SettlingTime_list, SettlingTime_lqr_list = [], []
 
 
@@ -64,19 +64,19 @@ def summarize(out_lq_list, out_dr_list, out_drkf_list, out_mmse_list, dist, nois
         print("DRKF cost : ", J_drkf_mean[0])
         print("DRKF cost std : ", J_drkf_std[0])
         J_drkf_ar = np.array(J_drkf_list)
-    if mmse:
+    if drlqc:
         for out in out_mmse_list:
-             x_mmse_list.append(out['state_traj'])
-             J_mmse_list.append(out['cost'])
-             y_mmse_list.append(out['output_traj'])
-             u_mmse_list.append(out['control_traj'])
-             time_mmse_list.append(out['comp_time'])
-        x_mmse_mean, J_mmse_mean, y_mmse_mean, u_mmse_mean = np.mean(x_mmse_list, axis=0), np.mean(J_mmse_list, axis=0), np.mean(y_mmse_list, axis=0), np.mean(u_mmse_list, axis=0)
-        x_mmse_std, J_mmse_std, y_mmse_std, u_mmse_std = np.std(x_mmse_list, axis=0), np.std(J_mmse_list, axis=0), np.std(y_mmse_list, axis=0), np.std(u_mmse_list, axis=0)
-        time_mmse_ar = np.array(time_mmse_list)
-        print("MMSE cost : ", J_mmse_mean[0])
-        print("MMSE cost std : ", J_mmse_std[0])
-        J_mmse_ar = np.array(J_mmse_list)         
+             x_drlqc_list.append(out['state_traj'])
+             J_drlqc_list.append(out['cost'])
+             y_drlqc_list.append(out['output_traj'])
+             u_drlqc_list.append(out['control_traj'])
+             time_drlqc_list.append(out['comp_time'])
+        x_drlqc_mean, J_drlqc_mean, y_drlqc_mean, u_drlqc_mean = np.mean(x_drlqc_list, axis=0), np.mean(J_drlqc_list, axis=0), np.mean(y_drlqc_list, axis=0), np.mean(u_drlqc_list, axis=0)
+        x_drlqc_std, J_drlqc_std, y_drlqc_std, u_drlqc_std = np.std(x_drlqc_list, axis=0), np.std(J_drlqc_list, axis=0), np.std(y_drlqc_list, axis=0), np.std(u_drlqc_list, axis=0)
+        time_drlqc_ar = np.array(time_drlqc_list)
+        print("DRLQC cost : ", J_drlqc_mean[0])
+        print("DRLQC cost std : ", J_drlqc_std[0])
+        J_drlqc_ar = np.array(J_drlqc_list)         
         
     #nx = x_mean.shape[1]
     #T = u_mean.shape[0]
@@ -115,16 +115,16 @@ def summarize(out_lq_list, out_dr_list, out_drkf_list, out_mmse_list, dist, nois
                 if((x_drkf_mean[i,j] <= err_bound_min_drkf[j]) | (x_drkf_mean[i,j] >= err_bound_max_drkf[j])):
                     SettlingTime_drkf[j] = (i+1)*0.1
                     break
-    #MMSE_WDRC            
-    if mmse:
-        avg = np.mean(x_mmse_mean[T-200:T,:], axis=0)        
-        err_bound_max_mmse = avg + 0.1*np.abs(avg)
-        err_bound_min_mmse = avg - 0.1*np.abs(avg)
-        SettlingTime_mmse = np.zeros(nx)
+    #DRLQC           
+    if drlqc:
+        avg = np.mean(x_drlqc_mean[T-200:T,:], axis=0)        
+        err_bound_max_drlqc = avg + 0.1*np.abs(avg)
+        err_bound_min_drlqc = avg - 0.1*np.abs(avg)
+        SettlingTime_drlqc = np.zeros(nx)
         for j in range(nx):
             for i in reversed(range(T)):
-                if((x_mmse_mean[i,j] <= err_bound_min_mmse[j]) | (x_mmse_mean[i,j] >= err_bound_max_mmse[j])):
-                    SettlingTime_mmse[j] = (i+1)*0.1
+                if((x_drlqc_mean[i,j] <= err_bound_min_drlqc[j]) | (x_drlqc_mean[i,j] >= err_bound_max_drlqc[j])):
+                    SettlingTime_drlqc[j] = (i+1)*0.1
                     break
                         
     if plot_results:
@@ -151,10 +151,10 @@ def summarize(out_lq_list, out_dr_list, out_drkf_list, out_mmse_list, dist, nois
                 plt.plot(t, x_drkf_mean[:,i,0], 'tab:green', label='DRKF-WDRC')
                 plt.fill_between(t, x_drkf_mean[:,i, 0] + 0.3*x_drkf_std[:,i,0],
                                x_drkf_mean[:,i,0] - 0.3*x_drkf_std[:,i,0], facecolor='tab:green', alpha=0.3)
-            if mmse:
-                plt.plot(t, x_mmse_mean[:,i,0], 'tab:purple', label='MMSE-WDRC')
-                plt.fill_between(t, x_mmse_mean[:,i, 0] + 0.3*x_mmse_std[:,i,0],
-                               x_mmse_mean[:,i,0] - 0.3*x_mmse_std[:,i,0], facecolor='tab:purple', alpha=0.3)
+            if drlqc:
+                plt.plot(t, x_drlqc_mean[:,i,0], 'tab:purple', label='DRLQC')
+                plt.fill_between(t, x_drlqc_mean[:,i, 0] + 0.3*x_drlqc_std[:,i,0],
+                               x_drlqc_mean[:,i,0] - 0.3*x_drlqc_std[:,i,0], facecolor='tab:purple', alpha=0.3)
             
                 
             plt.xlabel(r'$t$', fontsize=22)
@@ -193,10 +193,10 @@ def summarize(out_lq_list, out_dr_list, out_drkf_list, out_mmse_list, dist, nois
                 plt.plot(t, u_drkf_mean[:,i,0], 'tab:green', label='DRKF-WDRC')
                 plt.fill_between(t, u_drkf_mean[:,i,0] + 0.25*u_drkf_std[:,i,0],
                              u_drkf_mean[:,i,0] - 0.25*u_drkf_std[:,i,0], facecolor='tab:green', alpha=0.3)                
-            if mmse:
-                plt.plot(t, u_mmse_mean[:,i,0], 'tab:purple', label='MMSE-WDRC')
-                plt.fill_between(t, u_mmse_mean[:,i,0] + 0.25*u_mmse_std[:,i,0],
-                             u_mmse_mean[:,i,0] - 0.25*u_mmse_std[:,i,0], facecolor='tab:purple', alpha=0.3)
+            if drlqc:
+                plt.plot(t, u_drlqc_mean[:,i,0], 'tab:purple', label='DRLQC')
+                plt.fill_between(t, u_drlqc_mean[:,i,0] + 0.25*u_drlqc_std[:,i,0],
+                             u_drlqc_mean[:,i,0] - 0.25*u_drlqc_std[:,i,0], facecolor='tab:purple', alpha=0.3)
             
             plt.xlabel(r'$t$', fontsize=16)
             plt.ylabel(r'$u_{{{}}}$'.format(i+1), fontsize=16)
@@ -225,10 +225,10 @@ def summarize(out_lq_list, out_dr_list, out_drkf_list, out_mmse_list, dist, nois
                 plt.plot(t, y_drkf_mean[:,i,0], 'tab:green', label='DRKF-WDRC')
                 plt.fill_between(t, y_drkf_mean[:,i,0] + 0.25*y_drkf_std[:,i,0],
                              y_drkf_mean[:,i, 0] - 0.25*y_drkf_std[:,i,0], facecolor='tab:green', alpha=0.3)
-            if mmse:
-                plt.plot(t, y_mmse_mean[:,i,0], 'tab:purple', label='MMSE-WDRC')
-                plt.fill_between(t, y_mmse_mean[:,i,0] + 0.25*y_mmse_std[:,i,0],
-                             y_mmse_mean[:,i, 0] - 0.25*y_mmse_std[:,i,0], facecolor='tab:purple', alpha=0.3)
+            if drlqc:
+                plt.plot(t, y_drlqc_mean[:,i,0], 'tab:purple', label='DRLQC')
+                plt.fill_between(t, y_drlqc_mean[:,i,0] + 0.25*y_drlqc_std[:,i,0],
+                             y_drlqc_mean[:,i, 0] - 0.25*y_drlqc_std[:,i,0], facecolor='tab:purple', alpha=0.3)
             
             plt.xlabel(r'$t$', fontsize=16)
             plt.ylabel(r'$y_{{{}}}$'.format(i+1), fontsize=16)
@@ -257,9 +257,9 @@ def summarize(out_lq_list, out_dr_list, out_drkf_list, out_mmse_list, dist, nois
         if drkf:
             plt.plot(t, J_drkf_mean, 'tab:green', label='DRKF-WDRC')
             plt.fill_between(t, J_drkf_mean + 0.25*J_drkf_std, J_drkf_mean - 0.25*J_drkf_std, facecolor='tab:green', alpha=0.3)
-        if mmse:
-            plt.plot(t, J_mmse_mean, 'tab:purple', label='MMSE-WDRC')
-            plt.fill_between(t, J_mmse_mean + 0.25*J_mmse_std, J_mmse_mean - 0.25*J_mmse_std, facecolor='tab:purple', alpha=0.3)
+        if drlqc:
+            plt.plot(t, J_drlqc_mean, 'tab:purple', label='DRLQC')
+            plt.fill_between(t, J_drlqc_mean + 0.25*J_drlqc_std, J_drlqc_mean - 0.25*J_drlqc_std, facecolor='tab:purple', alpha=0.3)
         
         plt.xlabel(r'$t$', fontsize=16)
         plt.ylabel(r'$V_t(x_t)$', fontsize=16)
@@ -283,15 +283,15 @@ def summarize(out_lq_list, out_dr_list, out_drkf_list, out_mmse_list, dist, nois
         # max_bin = np.max([ J_lqr_ar[:,0], J_drkf_ar[:,0], J_mmse_ar[:,0]])
         # min_bin = np.min([ J_lqr_ar[:,0], J_drkf_ar[:,0], J_mmse_ar[:,0]])
         
-        if drkf and mmse and wdrc:
-            max_bin = np.max([J_ar[:,0], J_lqr_ar[:,0], J_drkf_ar[:,0], J_mmse_ar[:,0]])
-            min_bin = np.min([J_ar[:,0], J_lqr_ar[:,0], J_drkf_ar[:,0], J_mmse_ar[:,0]])
+        if drkf and drlqc and wdrc:
+            max_bin = np.max([J_ar[:,0], J_lqr_ar[:,0], J_drkf_ar[:,0], J_drlqc_ar[:,0]])
+            min_bin = np.min([J_ar[:,0], J_lqr_ar[:,0], J_drkf_ar[:,0], J_drlqc_ar[:,0]])
         elif drkf and wdrc:
             max_bin = np.max([J_ar[:,0], J_lqr_ar[:,0], J_drkf_ar[:,0]])
             min_bin = np.min([J_ar[:,0], J_lqr_ar[:,0], J_drkf_ar[:,0]])
-        elif mmse and wdrc:
-            max_bin = np.max([J_ar[:,0], J_lqr_ar[:,0], J_mmse_ar[:,0]])
-            min_bin = np.min([J_ar[:,0], J_lqr_ar[:,0], J_mmse_ar[:,0]])    
+        elif drlqc and wdrc:
+            max_bin = np.max([J_ar[:,0], J_lqr_ar[:,0], J_drlqc_ar[:,0]])
+            min_bin = np.min([J_ar[:,0], J_lqr_ar[:,0], J_drlqc_ar[:,0]])    
         else: 
             max_bin = np.max([J_ar[:,0], J_lqr_ar[:,0]])
             min_bin = np.min([J_ar[:,0], J_lqr_ar[:,0]])
@@ -302,8 +302,8 @@ def summarize(out_lq_list, out_dr_list, out_drkf_list, out_mmse_list, dist, nois
             ax.hist(J_ar[:,0], bins=50, range=(min_bin,max_bin), color='tab:blue', label='WDRC', alpha=0.5, linewidth=0.5, edgecolor='tab:blue')
         if drkf:
             ax.hist(J_drkf_ar[:,0], bins=50, range=(min_bin,max_bin), color='tab:green', label='DRKF-WDRC', alpha=0.5, linewidth=0.5, edgecolor='tab:green')
-        if mmse:
-            ax.hist(J_mmse_ar[:,0], bins=50, range=(min_bin,max_bin), color='tab:purple', label='MMSE-WDRC', alpha=0.5, linewidth=0.5, edgecolor='tab:purple')
+        if drlqc:
+            ax.hist(J_drlqc_ar[:,0], bins=50, range=(min_bin,max_bin), color='tab:purple', label='DRLQC', alpha=0.5, linewidth=0.5, edgecolor='tab:purple')
         
         
         if wdrc:
@@ -311,8 +311,8 @@ def summarize(out_lq_list, out_dr_list, out_drkf_list, out_mmse_list, dist, nois
         ax.axvline(J_lqr_ar[:,0].mean(), color='maroon', linestyle='dashed', linewidth=1.5)
         if drkf:
             ax.axvline(J_drkf_ar[:,0].mean(), color='green', linestyle='dashed', linewidth=1.5)
-        if mmse:
-            ax.axvline(J_mmse_ar[:,0].mean(), color='purple', linestyle='dashed', linewidth=1.5)
+        if drlqc:
+            ax.axvline(J_drlqc_ar[:,0].mean(), color='purple', linestyle='dashed', linewidth=1.5)
 
         plt.xticks(fontsize=16)
         plt.yticks(fontsize=16)
@@ -322,13 +322,13 @@ def summarize(out_lq_list, out_dr_list, out_drkf_list, out_mmse_list, dist, nois
         # order = [1, 0, 2]
         # ax.legend([handles[idx] for idx in order], [labels[idx] for idx in order], fontsize=14)
         
-        if drkf and mmse:
+        if drkf and drlqc:
             order = [1, 0, 2, 3]
             ax.legend([handles[idx] for idx in order], [labels[idx] for idx in order], fontsize=14)
         elif drkf:
             order = [0, 1, 2]
             ax.legend([handles[idx] for idx in order], [labels[idx] for idx in order], fontsize=14)
-        elif mmse:
+        elif drlqc:
             order = [1, 0, 2]
             ax.legend([handles[idx] for idx in order], [labels[idx] for idx in order], fontsize=14)
         else:
@@ -350,21 +350,21 @@ def summarize(out_lq_list, out_dr_list, out_drkf_list, out_mmse_list, dist, nois
 
 
         plt.close('all')
-    if drkf and mmse:
-        print( 'cost_lqr:{} ({})'.format(J_lqr_mean[0],J_lqr_std[0]),'cost_WDRC: {} ({})'.format(J_mean[0], J_std[0]) , 'cost_drkf_WDRC:{} ({})'.format(J_drkf_mean[0],J_drkf_std[0]), 'cost_mmse_WDRC:{} ({})'.format(J_mmse_mean[0],J_mmse_std[0]))
-        print( 'time_lqr: {} ({})'.format(time_lqr_ar.mean(), time_lqr_ar.std()),'time_WDRC: {} ({})'.format(time_ar.mean(), time_ar.std()), 'time_drkf_WDRC: {} ({})'.format(time_drkf_ar.mean(), time_drkf_ar.std()), 'time_mmse_WDRC: {} ({})'.format(time_mmse_ar.mean(), time_mmse_ar.std()))
+    if drkf and drlqc:
+        print( 'cost_lqr:{} ({})'.format(J_lqr_mean[0],J_lqr_std[0]),'cost_WDRC: {} ({})'.format(J_mean[0], J_std[0]) , 'cost_drkf_WDRC:{} ({})'.format(J_drkf_mean[0],J_drkf_std[0]), 'cost_drlqc:{} ({})'.format(J_drlqc_mean[0],J_drlqc_std[0]))
+        print( 'time_lqr: {} ({})'.format(time_lqr_ar.mean(), time_lqr_ar.std()),'time_WDRC: {} ({})'.format(time_ar.mean(), time_ar.std()), 'time_drkf_WDRC: {} ({})'.format(time_drkf_ar.mean(), time_drkf_ar.std()), 'time_drlqc: {} ({})'.format(time_drlqc_ar.mean(), time_drlqc_ar.std()))
     #    print('Settling time: {} ({})'.format(SettlingTime_ar.mean(axis=0), SettlingTime_ar.std(axis=0)), 'Settling time_lqr: {} ({})'.format(SettlingTime_lqr_ar.mean(axis=0), SettlingTime_lqr_ar.std(axis=0)))
-        print( 'Settling time_lqr: {}'.format(SettlingTime_lqr),'Settling time_WDRC: {} '.format(SettlingTime), 'Settling time_drkf_WDRC: {}'.format(SettlingTime_drkf), 'Settling time_mmse_WDRC: {}'.format(SettlingTime_mmse)) 
+        print( 'Settling time_lqr: {}'.format(SettlingTime_lqr),'Settling time_WDRC: {} '.format(SettlingTime), 'Settling time_drkf_WDRC: {}'.format(SettlingTime_drkf), 'Settling time_drlqc: {}'.format(SettlingTime_drlqc)) 
     elif drkf:
         print( 'cost_lqr:{} ({})'.format(J_lqr_mean[0],J_lqr_std[0]),'cost_WDRC: {} ({})'.format(J_mean[0], J_std[0]) , 'cost_drkf_WDRC:{} ({})'.format(J_drkf_mean[0],J_drkf_std[0]))
         print( 'time_lqr: {} ({})'.format(time_lqr_ar.mean(), time_lqr_ar.std()),'time_WDRC: {} ({})'.format(time_ar.mean(), time_ar.std()), 'time_drkf_WDRC: {} ({})'.format(time_drkf_ar.mean(), time_drkf_ar.std()))
     #    print('Settling time: {} ({})'.format(SettlingTime_ar.mean(axis=0), SettlingTime_ar.std(axis=0)), 'Settling time_lqr: {} ({})'.format(SettlingTime_lqr_ar.mean(axis=0), SettlingTime_lqr_ar.std(axis=0)))
         print( 'Settling time_lqr: {}'.format(SettlingTime_lqr),'Settling time_WDRC: {} '.format(SettlingTime), 'Settling time_drkf_WDRC: {}'.format(SettlingTime_drkf))
-    elif mmse:
-        print('cost_WDRC: {} ({})'.format(J_mean[0], J_std[0]) , 'cost_lqr:{} ({})'.format(J_lqr_mean[0],J_lqr_std[0]), 'cost_mmse_WDRC:{} ({})'.format(J_mmse_mean[0],J_mmse_std[0]))
-        print('time_WDRC: {} ({})'.format(time_ar.mean(), time_ar.std()), 'time_lqr: {} ({})'.format(time_lqr_ar.mean(), time_lqr_ar.std()), 'time_mmse_WDRC: {} ({})'.format(time_mmse_ar.mean(), time_mmse_ar.std()))
+    elif drlqc:
+        print('cost_WDRC: {} ({})'.format(J_mean[0], J_std[0]) , 'cost_lqr:{} ({})'.format(J_lqr_mean[0],J_lqr_std[0]), 'cost_drlqc:{} ({})'.format(J_drlqc_mean[0],J_drlqc_std[0]))
+        print('time_WDRC: {} ({})'.format(time_ar.mean(), time_ar.std()), 'time_lqr: {} ({})'.format(time_lqr_ar.mean(), time_lqr_ar.std()), 'time_drlqc: {} ({})'.format(time_drlqc_ar.mean(), time_drlqc_ar.std()))
     #    print('Settling time: {} ({})'.format(SettlingTime_ar.mean(axis=0), SettlingTime_ar.std(axis=0)), 'Settling time_lqr: {} ({})'.format(SettlingTime_lqr_ar.mean(axis=0), SettlingTime_lqr_ar.std(axis=0)))
-        print('Settling time_WDRC: {} '.format(SettlingTime), 'Settling time_lqr: {}'.format(SettlingTime_lqr), 'Settling time_mmse_WDRC: {}'.format(SettlingTime_mmse))
+        print('Settling time_WDRC: {} '.format(SettlingTime), 'Settling time_lqr: {}'.format(SettlingTime_lqr), 'Settling time_drlqc: {}'.format(SettlingTime_drlqc))
     else:
         print('cost_WDRC: {} ({})'.format(J_mean[0], J_std[0]) , 'cost_lqr:{} ({})'.format(J_lqr_mean[0],J_lqr_std[0]))
         print('time_WDRC: {} ({})'.format(time_ar.mean(), time_ar.std()), 'time_lqr: {} ({})'.format(time_lqr_ar.mean(), time_lqr_ar.std()))
@@ -409,11 +409,11 @@ if __name__ == "__main__":
         drkf_wdrc_data = pickle.load(drkf_wdrc_file)
         drkf_wdrc_file.close()
         
-        mmse_wdrc_file = open(path + 'mmse_wdrc.pkl', 'rb')
-        mmse_wdrc_data = pickle.load(mmse_wdrc_file)
-        mmse_wdrc_file.close()
+        drlqc_file = open(path + 'drlqc.pkl', 'rb')
+        drlqc_data = pickle.load(drlqc_file)
+        drlqc_file.close()
         
-        summarize(lqg_data, wdrc_data, drkf_wdrc_data, mmse_wdrc_data, args.dist, args.noise_dist, path, args.num_sim, plot_results=True, wdrc = True, drkf=True, mmse=False, application=args.application)
+        summarize(lqg_data, wdrc_data, drkf_wdrc_data, drlqc_data, args.dist, args.noise_dist, path, args.num_sim, plot_results=True, wdrc = True, drkf=True, mmse=False, application=args.application)
     else:
         path = "./results/{}/{}/single/".format(args.dist, horizon)
 

@@ -4,34 +4,65 @@
 import numpy as np
 import time
 from scipy.optimize import minimize
-from function_utils import *
+from controllers.function_utils import *
 import cvxpy as cp
 import scipy
 import control
+#from generator_utils import random_pd_matrix_generator
+from controllers.function_utils import (
+    calculate_P,
+    FW,
+    Parameters,
+)
+import pymanopt
+from tqdm import tqdm
+import matplotlib.pyplot as plt
+import numpy as np
 
 # Controller from Taşkesen, Bahar, et al. "Distributionally Robust Linear Quadratic Control." arXiv preprint arXiv:2305.17037 (2023).
 # https://github.com/RAO-EPFL/DR-Control 
 class DRLQC:
-    def __init__(self, lambda_, theta, T, dist, noise_dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, mu_v, v_mean_hat, M_hat, app_lambda):
+    def __init__(self, lambda_, theta, T, dist, noise_dist, system_data, mu_hat, W_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, mu_v, v_mean_hat, V_hat, tol):
         self.dist = dist
         self.noise_dist = noise_dist
         self.T = T
         self.A, self.B, self.C, self.Q, self.Qf, self.R, self.M = system_data
-        self.v_mean_hat = v_mean_hat
-        self.M_hat = M_hat
         self.nx = self.B.shape[0]
         self.nu = self.B.shape[1]
         self.ny = self.C.shape[0]
         m = self.nu
         n = self.nx
         p = self.ny
+        self.A_big = np.zeros((n, n, T))
+        self.B_big = np.zeros((n, m, T))
+        self.C_big = np.zeros((p, n, T))
+        self.Q_big = np.zeros((n, n, T + 1))
+        self.R_big = np.zeros((m, m, T))
+        for i in range(T):
+            temp = np.ones((n, n))
+            self.A_big[:, :, i] = np.eye(n) + np.triu(temp, 1) - np.triu(temp, 2)
+            self.B_big[:, :, i] = np.eye(m)
+            self.C_big[:, :, i] = np.eye(p)
+            self.R_big[:, :, i] = np.eye(m)
+            self.Q_big[:, :, i] = np.eye(n)
+        self.Q_big[:, :, T] = np.eye(n)
+        self.P_ = calculate_P(A=self.A_big, B=self.B_big, Q=self.Q_big, R=self.R_big, T=self.T)
+        
+        self.v_mean_hat = v_mean_hat
+        self.V_hat = V_hat
+        self.W_hat = W_hat
+        self.V_opt = np.zeros_like(V_hat)
+        self.W_opt = np.zeros_like(W_hat)
+        self.tol = tol
+        self.iter_max = 500
+        self.delta = 0.95
         self.m = m
         self.n = n
         self.p = p
         self.x0_mean = x0_mean
         self.x0_cov = x0_cov
+        self.X0_opt = np.zeros_like(x0_cov)
         self.mu_hat = mu_hat
-        self.Sigma_hat = Sigma_hat
         self.mu_w = mu_w
         self.mu_v = mu_v
         self.Sigma_w = Sigma_w
@@ -64,17 +95,33 @@ class DRLQC:
         
         self.lambda_ = lambda_
         
-        print("DRLQC ", self.dist, " / ", self.noise_dist, " / theta_w : ", self.theta_w)
+        print("DRLQC ", self.dist, " / ", self.noise_dist, " / rho : ", self.rho)
+        
+        self.params = Parameters(
+        A=self.A_big,
+        B=self.B_big,
+        C=self.C_big,
+        Q=self.Q_big,
+        R=self.R_big,
+        T=self.T,
+        P=self.P_,
+        X0_hat=self.x0_cov,
+        V_hat=self.V_hat,
+        W_hat=self.W_hat,
+        rho=self.rho,
+        tol=np.nan,
+        tensors=True,
+        )
 
         #### Creating Block Matrices for SDP ####
         self.R_block = np.zeros([T, T, m, m])
         self.C_block = np.zeros([T, T + 1, p, n])
         for t in range(T):
-            self.R_block[t, t] = self.R[:, :, t]
-            self.C_block[t, t] = self.C[:, :, t]
+            self.R_block[t, t] = self.R_big[:, :, t]
+            self.C_block[t, t] = self.C_big[:, :, t]
         self.Q_block = np.zeros([n * (T + 1), n * (T + 1)])
         for t in range(T + 1):
-            self.Q_block[t * n : t * n + n, t * n : t * n + n] = self.Q[:, :, t]
+            self.Q_block[t * n : t * n + n, t * n : t * n + n] = self.Q_big[:, :, t]
 
         self.R_block = np.reshape(self.R_block.transpose(0, 2, 1, 3), (m * T, m * T))
         # Q_block = np.reshape(Q_block.transpose(0, 2, 1, 3), (n * (T + 1), n * (T + 1)))
@@ -87,13 +134,22 @@ class DRLQC:
             for s in range(t + 1):
                 # breakpoint()
                 # print(GG[t * n : t * n + n, s * n : s * n + n])
-                self.G[t * n : t * n + n, s * n : s * n + n] = cumulative_product(self.A, s, t)
+                self.G[t * n : t * n + n, s * n : s * n + n] = cumulative_product(self.A_big, s, t)
                 if t != s:
                     self.H[t * n : t * n + n, s * m : s * m + m] = (
-                        cumulative_product(self.A, s + 1, t) @ self.B[:, :, s]
+                        cumulative_product(self.A_big, s + 1, t) @ self.B_big[:, :, s]
                     )
         self.D = np.matmul(self.C_block, self.G)
         self.inv_cons = np.linalg.inv(self.R_block + self.H.T @ self.Q_block @ self.H)
+        
+        #-----For LQG
+        self.J = np.zeros(self.T+1)
+        self.P = np.zeros((self.T+1, self.nx, self.nx))
+        self.S = np.zeros((self.T+1, self.nx, self.nx))
+        self.r = np.zeros((self.T+1, self.nx, 1))
+        self.z = np.zeros(self.T+1)
+        self.K = np.zeros(( self.T, self.nu, self.nx))
+        self.L = np.zeros(( self.T, self.nu, 1))
         
 
     def uniform(self, a, b, N=1):
@@ -131,177 +187,83 @@ class DRLQC:
         return x.T
     
     def solve_sdp(self):
-        ### OPTIMIZATION MODEL ###
-        E = cp.Variable((self.m * self.T, self.m * self.T), symmetric=True)
-        E_x0 = cp.Variable((self.n, self.n), symmetric=True)
-        W_var = cp.Variable((self.n * (self.T + 1), self.n * (self.T + 1)))
-        V_var = cp.Variable((self.p * self.T, self.p * self.T))
-        E_w = []
-        E_v = []
-        W_var_sep = []  # cp.Variable((n*(T+1),n*(T+1)), symmetric=True)
-        V_var_sep = []  # cp.Variable((p*T, p*T), symmetric=True)
-        for t in range(self.T):
-            E_w.append(cp.Variable((self.n, self.n), symmetric=True))
-            E_v.append(cp.Variable((self.p, self.p), symmetric=True))
-            W_var_sep.append(cp.Variable((self.n, self.n), symmetric=True))
-            V_var_sep.append(cp.Variable((self.p, self.p), symmetric=True))
-        W_var_sep.append(cp.Variable((self.n, self.n), symmetric=True))
-        M_var = cp.Variable((self.m * self.T, self.p * self.T))
-        M_var_sep = []
-        num_lower_tri = num_lower_triangular_elements(self.T, self.T)
-        for k in range(num_lower_tri):
-            M_var_sep.append(cp.Variable((self.m, self.p)))
-        k = 0
-        cons = []
-        for t in range(self.T):
-            for s in range(t + 1):
-                cons.append(M_var[t * self.m : t * self.m + self.m, self.p * s : self.p * s + self.p] == M_var_sep[k])
-                cons.append(M_var_sep[k] == np.zeros((self.m, self.p)))
-                k = k + 1
-
-        for t in range(self.T + 1):
-            cons.append(W_var[self.n * t : self.n * t + self.n, self.n * t : self.n * t + self.n] == W_var_sep[t])
-            cons.append(W_var_sep[t] >> 0)
-
-        # Setting the rest of the elements of the matrix to zero
-        for i in range(W_var.shape[0]):
-            for j in range(W_var.shape[1]):
-                # If the element is not in one of the blocks
-                if not any(
-                    self.n * t <= i < self.n * (t + 1) and self.n * t <= j < self.n * (t + 1)
-                    for t in range(self.T + 1)
-                ):
-                    cons.append(W_var[i, j] == 0)
-
-        for t in range(self.T):
-            cons.append(V_var[self.p * t : self.p * t + self.p, self.p * t : self.p * t + self.p] == V_var_sep[t])
-            cons.append(V_var_sep[t] >> 0)
-            cons.append(E_v[t] >> 0)
-            cons.append(E_w[t] >> 0)
-        # Setting the rest of the elements of the matrix to zero
-        for i in range(V_var.shape[0]):
-            for j in range(V_var.shape[1]):
-                # If the element is not in one of the blocks
-                if not any(
-                    self.p * t <= i < self.p * (t + 1) and self.p * t <= j < self.p * (t + 1)
-                    for t in range(self.T + 1)
-                ):
-                    cons.append(V_var[i, j] == 0)
-
-        cons.append(E >> 0)
-        cons.append(E_x0 >> 0)
-
-        cons.append(cp.trace(W_var_sep[0] + self.x0_cov - 2 * E_x0) <= self.rho**2)
-        cons.append(W_var_sep[0] >> np.min(np.linalg.eigvals(self.x0_cov)) * np.eye(self.n))
-        for t in range(T):
-            cons.append(
-                cp.trace(W_var_sep[t + 1] + W_hat[:, :, t] - 2 * E_w[t]) <= rho**2
-            )
-            cons.append(cp.trace(V_var_sep[t] + V_hat[:, :, t] - 2 * E_v[t]) <= rho**2)
-            cons.append(
-                W_var_sep[t + 1] >> np.min(np.linalg.eigvals(W_hat[:, :, t])) * np.eye(n)
-            )
-            cons.append(
-                V_var_sep[t] >> np.min(np.linalg.eigvals(V_hat[:, :, t])) * np.eye(p)
-            )
-        X0_hat_sqrt = sqrtm(X0_hat)
-        cons.append(
-            cp.bmat(
-                [
-                    [cp.matmul(cp.matmul(X0_hat_sqrt, W_var_sep[0]), X0_hat_sqrt), E_x0],
-                    [E_x0, np.eye(n)],
-                ]
-            )
-            >> 0
+        print("Solving DRLQC SDP . . . (Frank-Wolfe Algorithm)")
+        # FW
+        obj_vals_fw, duality_gap_fw, X0_k_fw, W_k_fw, V_k_fw = FW(
+        X0_k=self.x0_cov, W_k=self.W_hat, V_k=self.V_hat, iter_max=self.iter_max, delta=self.delta, params=self.params
         )
-        for t in range(T):
-            temp = sqrtm(W_hat[:, :, t])
-            cons.append(
-                cp.bmat(
-                    [
-                        [cp.matmul(cp.matmul(temp, W_var_sep[t + 1]), temp), E_w[t]],
-                        [E_w[t], np.eye(n)],
-                    ]
-                )
-                >> 0
-            )
-            temp = sqrtm(V_hat[:, :, t])
-            cons.append(
-                cp.bmat(
-                    [
-                        [cp.matmul(cp.matmul(temp, V_var_sep[t]), temp), E_v[t]],
-                        [E_v[t], np.eye(p)],
-                    ]
-                )
-                >> 0
-            )
+        self.V_opt = V_k_fw
+        #print("V_opt shape : ",self.V_opt.shape)
+        self.W_opt = W_k_fw
+        self.X0_opt = X0_k_fw
+        # now, solve standard LQG problem using this worst case V, W, and X0
+      
+    def kalman_filter_cov(self, M_hat, P, P_w=None):
+        #Performs state estimation based on the current state estimate, control input and new observation
+        if P_w is None:
+            #Initial state estimate
+            P_ = P
+        else:
+            #Prediction update
+            P_ = self.A @ P @ self.A.T + P_w
 
-        cons.append(
-            cp.bmat(
-                [
-                    [
-                        E,
-                        cp.matmul(
-                            cp.matmul(cp.matmul(cp.matmul(H.T, Q_block), G), W_var), D.T
-                        )
-                        + M_var / 2,
-                    ],
-                    [
-                        (
-                            cp.matmul(
-                                cp.matmul(cp.matmul(cp.matmul(H.T, Q_block), G), W_var),
-                                D.T,
-                            )
-                            + M_var / 2
-                        ).T,
-                        cp.matmul(cp.matmul(D, W_var), D.T) + V_var,
-                    ],
-                ]
-            )
-            >> 0
-        )
-        obj = -cp.trace(cp.matmul(E, inv_cons)) + cp.trace(
-            cp.matmul(cp.matmul(cp.matmul(G.T, Q_block), G), W_var)
-        )
+        #Measurement update
+        temp = np.linalg.solve(self.C @ P_ @ self.C.T + M_hat, self.C @ P_)
+        P_new = P_ - P_ @ self.C.T @ temp
+        return P_new
+    
+    def kalman_filter(self, v_mean_hat, M_hat, x, P, y, mu_w=None, u = None):
+        #Performs state estimation based on the current state estimate, control input and new observation
+        if u is None:
+            #Initial state estimate
+            x_ = x
+        else:
+            #Prediction update
+            x_ = self.A @ x + self.B @ u + mu_w
+            
+        P_ = self.C @ P @ self.C.T + M_hat
+        #Measurement update
+        resid = y - (self.C @ x_ + v_mean_hat)
 
-        prob = cp.Problem(cp.Maximize(obj), cons)
-        # breakpoint()
-        prob.solve(
-            solver="MOSEK",
-            mosek_params={"MSK_DPAR_INTPNT_CO_TOL_REL_GAP": tol},
-            verbose=False,
-        )
-        # breakpoint()
-        E_check = (
-            (H.T @ Q_block @ G @ W_var.value @ D.T + M_var.value / 2)
-            @ np.linalg.inv(D @ W_var.value @ D.T + V_var.value)
-            @ (M_var.value / 2 + H.T @ Q_block @ G @ W_var.value @ D.T).T
-        )
-        M = M_var.value
-        M[np.abs(M) <= 1e-11] = 0
-        W_var_clean = W_var.value
-        V_var_clean = V_var.value
-        W_var_clean[W_var_clean <= 1e-11] = 0
-        V_var_clean[V_var_clean <= 1e-11] = 0
+#        temp = np.linalg.solve(self.C @ P_ @ self.C.T + self.M, self.C @ P_)
+#        P_new = P_ - P_ @ self.C.T @ temp
+        #temp = np.linalg.solve(M_hat, resid) 
+        # HERE!!
+        temp = np.linalg.solve(M_hat, resid)
+        x_new = x_ + P @ self.C.T @ temp
+        return x_new
 
-        E_new = (
-            (H.T @ Q_block @ G @ W_var_clean @ D.T + M / 2)
-            @ np.linalg.inv(D @ W_var_clean @ D.T + V_var_clean)
-            @ (M / 2 + H.T @ Q_block @ G @ W_var_clean @ D.T).T
-        )
-        obj_clean = -np.trace(np.matmul(E_new, inv_cons)) + np.trace(
-            np.matmul(np.matmul(np.matmul(G.T, Q_block), G), W_var_clean)
-        )
+    def riccati(self, Phi, P, S, r, z, Sigma_hat, mu_hat):
+        #Riccati equation for standard LQG
 
-        # breakpoint()
-
-        return obj.value, obj_clean, W_var.value, V_var.value
-
+        temp = np.linalg.inv(np.eye(self.nx) + P @ Phi)
+        P_ = self.Q + self.A.T @ temp @ P @ self.A
+        S_ = self.Q + self.A.T @ (P + S) @ self.A - P_
+        r_ = self.A.T @ temp @ (r + P @ mu_hat)
+        z_ = z + np.trace((S + P) @ Sigma_hat) \
+            + (2*mu_hat - Phi @ r).T @ temp @ r + mu_hat.T @ temp @ P @ mu_hat
+        temp2 = np.linalg.solve(self.R, self.B.T)
+        K = - temp2 @ temp @ P @ self.A
+        L = - temp2 @ temp @ (r + P @ mu_hat)
+        return P_, S_, r_, z_, K, L
 
     def get_obs(self, x, v):
         #Get new noisy observation
         obs = self.C @ x + v
         return obs
+
+    def backward(self):
+        #Compute P, S, r, z, K and L backward in time
+        print("DRLQC Backward")
+        self.P[self.T] = self.Qf
+        Phi = self.B @ np.linalg.inv(self.R) @ self.B.T
+        for t in range(self.T-1, -1, -1):
+             self.P[t], self.S[t], self.r[t], self.z[t], self.K[t], self.L[t]  = self.riccati(Phi, self.P[t+1], self.S[t+1], self.r[t+1], self.z[t+1], self.W_opt[:,:,t], self.mu_hat[t])
+        
+        self.x_cov = np.zeros((self.T+1, self.nx, self.nx))
+        self.x_cov[0] = self.kalman_filter_cov(self.V_opt[:,:,0], self.X0_opt)
+        for t in range(self.T):
+            self.x_cov[t+1] = self.kalman_filter_cov(self.V_opt[:,:,t+1], self.x_cov[t], self.W_opt[:,:,t])  
 
     def forward(self):
         #Apply the controller forward in time.
@@ -331,11 +293,9 @@ class DRLQC:
             true_v = self.quadratic(self.v_max, self.v_min) #observation noise
             
         y[0] = self.get_obs(x[0], true_v) #initial observation
-        x_mean[0] = self.kalman_filter(self.v_mean_hat[0], self.M_hat[0], self.x0_mean, self.x_cov[0], y[0]) #initial state estimation
+        x_mean[0] = self.kalman_filter(self.v_mean_hat[0], self.V_opt[:,:,0], self.x0_mean, self.X0_opt, y[0]) #initial state estimation
 
         for t in range(self.T):
-            mu_wc[t] = self.H[t] @ x_mean[t] + self.h[t] #worst-case mean
-            
             #disturbance sampling
             if self.dist=="normal":
                 true_w = self.normal(self.mu_w, self.Sigma_w)
@@ -356,8 +316,10 @@ class DRLQC:
             x[t+1] = self.A @ x[t] + self.B @ u[t] + true_w
             y[t+1] = self.get_obs(x[t+1], true_v)
 
-            #Update the state estimation (using the worst-case mean and covariance)
-            x_mean[t+1] = self.kalman_filter(self.v_mean_hat[t+1], self.M_hat[t+1], x_mean[t], self.x_cov[t+1], y[t+1], mu_wc[t], u=u[t])
+            #Update the state estimation
+            #print(self.V_opt[:,:,t+1])
+            if t<self.T-1:
+                x_mean[t+1] = self.kalman_filter(self.v_mean_hat[t+1], self.V_opt[:,:,t+1], x_mean[t], self.x_cov[t+1], y[t+1], mu_wc[t], u=u[t])
 
         #Compute the total cost
         J[self.T] = x[self.T].T @ self.Qf @ x[self.T]
@@ -365,7 +327,6 @@ class DRLQC:
             J[t] = J[t+1] + x[t].T @ self.Q @ x[t] + u[t].T @ self.R @ u[t]
 
         
-        #print("DRKF Optimal penalty (lambda_star):", self.lambda_)
         
         end = time.time()
         time_ = end-start

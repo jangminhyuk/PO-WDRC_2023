@@ -68,7 +68,7 @@ class WDRC:
         #--deprecated--#
         
         print("WDRC ", self.dist, " / ", self.noise_dist, " / theta_w : ", self.theta_w)
-        #self.lambda_ = self.optimize_penalty() #optimize penalty parameter for theta
+        self.lambda_ = self.optimize_penalty() #optimize penalty parameter for theta
 #        self.lambda_ = 3.5
         #self.binarysearch_infimum_penalty_finite()
         self.P = np.zeros((self.T+1, self.nx, self.nx))
@@ -90,11 +90,11 @@ class WDRC:
         #Optimize penalty using nelder-mead method
         #optimal_penalty = minimize(self.objective, x0=np.array([5*self.infimum_penalty]), method='nelder-mead', options={'xatol': 1e-6, 'disp': False, 'maxiter':10000}).x[0]
         
-        output = minimize(self.objective, x0=np.array([3000]), method='L-BFGS-B', options={'eps': 1e-8 ,'maxfun': 10000, 'disp': False, 'maxiter': 10000, 'ftol': 1e-6, 'gtol': 1e-6, 'maxls': 20})
-        #print(output.message)   
+        #output = minimize(self.objective, x0=np.array([10* self.infimum_penalty]), method='L-BFGS-B', options={'eps': 1e-8 ,'maxfun': 10000, 'disp': False, 'maxiter': 10000, 'ftol': 1e-6, 'gtol': 1e-6, 'maxls': 20})
+        output = minimize(self.objective, x0=np.array([10*self.infimum_penalty]), method='L-BFGS-B', options={'eps': 1e-8 ,'maxfun': 100000, 'disp': False, 'maxiter': 100000})  
         optimal_penalty = output.x[0]
         #optimal_penalty = 2* self.infimum_penalty
-        print("WDRC Optimal penalty (lambda_star) :", optimal_penalty, " when theta_w : ", self.theta_w, "\n\n")   
+        print("WDRC Optimal penalty (lambda_star) :", optimal_penalty, " when theta_w : ", self.theta_w, "\n\n")
         return optimal_penalty
 
     def objective(self, penalty):
@@ -129,7 +129,6 @@ class WDRC:
         x0_mean = self.kalman_filter(self.v_mean_hat[0],self.M_hat[0], self.x0_mean, self.x0_cov, y) #initial state estimation
         x_cov[0] = self.kalman_filter_cov(self.M_hat[0], self.x0_cov)
         for t in range(0, self.T-1):
-            
             x_cov[t+1] = self.kalman_filter_cov(self.M_hat[t], x_cov[t], sigma_wc[t])
             sdp_prob = self.gen_sdp(penalty, self.M_hat[t])
             sigma_wc[t], z_tilde[t], status = self.solve_sdp(sdp_prob, x_cov[t], P[t+1], S[t+1], self.Sigma_hat[t])

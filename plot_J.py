@@ -12,21 +12,21 @@ import matplotlib.pyplot as plt
 import argparse
 import pickle
 
-def summarize_noise(num_noise_list, avg_cost_lqg, std_cost_lqg, avg_cost_wdrc, std_cost_wdrc, avg_cost_drkf_wdrc, std_cost_drkf_wdrc, avg_cost_mmse_wdrc, std_cost_mmse_wdrc, dist, noise_dist, path, application):
+def summarize_noise(num_noise_list, avg_cost_lqg, std_cost_lqg, avg_cost_wdrc, std_cost_wdrc, avg_cost_drkf_wdrc, std_cost_drkf_wdrc, avg_cost_drlqc, std_cost_drlqc, dist, noise_dist, path, application):
 #    t = np.array([10, 15, 20, 25, 30, 35, 40, 45, 50])
     
     t = np.array(num_noise_list)
-    
+    #t = np.array([15, 20, 25, 30])
 
-    J_lqr_mean = np.array(avg_cost_lqg)
-    J_wdrc_mean = np.array(avg_cost_wdrc)
-    J_drkf_wdrc_mean = np.array(avg_cost_drkf_wdrc)
-    J_mmse_wdrc_mean = np.array(avg_cost_mmse_wdrc)
+    J_lqr_mean = np.array(avg_cost_lqg[0:])
+    J_wdrc_mean = np.array(avg_cost_wdrc[0:])
+    J_drkf_wdrc_mean = np.array(avg_cost_drkf_wdrc[0:])
+    J_drlqc_mean = np.array(avg_cost_drlqc[0:])
     
-    J_lqr_std = np.array(std_cost_lqg)
-    J_wdrc_std = np.array(std_cost_wdrc)
-    J_drkf_wdrc_std = np.array(std_cost_drkf_wdrc)
-    J_mmse_wdrc_std = np.array(std_cost_mmse_wdrc)
+    J_lqr_std = np.array(std_cost_lqg[0:])
+    J_wdrc_std = np.array(std_cost_wdrc[0:])
+    J_drkf_wdrc_std = np.array(std_cost_drkf_wdrc[0:])
+    J_drlqc_std = np.array(std_cost_drlqc[0:])
     
     # J_true_mean = np.array(avg_cost_true*len(t))
     # J_true_lqr_mean = np.array(avg_cost_true_lqg*len(t))
@@ -62,8 +62,9 @@ def summarize_noise(num_noise_list, avg_cost_lqg, std_cost_lqg, avg_cost_wdrc, s
     plt.plot(t, J_drkf_wdrc_mean, 'tab:green', label='DRKF-WDRC (sample)')
     plt.fill_between(t, J_drkf_wdrc_mean + 0.25*J_drkf_wdrc_std, J_drkf_wdrc_mean - 0.25*J_drkf_wdrc_std, facecolor='tab:green', alpha=0.3)
     
-    #plt.plot(t, J_mmse_wdrc_mean, 'tab:purple', label='MMSE-WDRC (sample)')
-    #plt.fill_between(t, J_mmse_wdrc_mean + 0.25*J_mmse_wdrc_std, J_mmse_wdrc_mean - 0.25*J_mmse_wdrc_std, facecolor='tab:purple', alpha=0.3)
+    plt.plot(t, J_drlqc_mean, 'tab:purple', label='DRLQC (sample)')
+    plt.fill_between(t, J_drlqc_mean + 0.25*J_drlqc_std, J_drlqc_mean - 0.25*J_drlqc_std, facecolor='tab:purple', alpha=0.3)
+    
     
     
     plt.xlabel(r'Noise Sample Size', fontsize=16)
@@ -86,7 +87,8 @@ if __name__ == "__main__":
     parser.add_argument('--dist', required=False, default="normal", type=str) #disurbance distribution (normal or uniform)
     parser.add_argument('--noise_dist', required=False, default="normal", type=str) #noise distribution (normal or uniform)
     parser.add_argument('--application', required=False, action="store_true")
-    parser.add_argument('--theta', required=False, default="1")
+    parser.add_argument('--theta', required=False, default="0.1")
+    parser.add_argument('--theta_drlqc', required=False, default="0.1")
     args = parser.parse_args()
     
     
@@ -107,7 +109,7 @@ if __name__ == "__main__":
     if args.application:
         path = "./results/quad_{}_{}/finite/multiple/num_noise_plot".format(args.dist, args.noise_dist)
     else:
-        path = "./results/{}_{}/finite/multiple/num_noise_plot/{}".format(args.dist, args.noise_dist, args.theta)
+        path = "./results/{}_{}/finite/multiple/num_noise_plot/{}/theta_drlqc={}".format(args.dist, args.noise_dist, args.theta, args.theta_drlqc)
     num_noise_list = [5, 10, 15, 20, 25, 30]
     # avg_cost_lqg = [25576.348, 5473.018, 3682.205, 3588.105, 3514.703, 3399.839]
     # avg_cost_wdrc = [4703.05, 1749.400, 1757.495, 1835.393, 1895.03, 1870.068]
@@ -140,12 +142,12 @@ if __name__ == "__main__":
     std_cost_drkf_wdrc = pickle.load(std_cost_drkf_wdrc_file)
     std_cost_drkf_wdrc_file.close()
     
-    avg_cost_mmse_wdrc_file = open(path + '/mmse_wdrc_mean.pkl', 'rb' )
-    avg_cost_mmse_wdrc = pickle.load(avg_cost_mmse_wdrc_file)
+    avg_cost_drlqc_file = open(path + '/drlqc_mean.pkl', 'rb' )
+    avg_cost_drlqc = pickle.load(avg_cost_drlqc_file)
     #print(avg_cost_mmse_wdrc)
-    avg_cost_mmse_wdrc_file.close()
-    std_cost_mmse_wdrc_file = open(path + '/mmse_wdrc_std.pkl', 'rb' )
-    std_cost_mmse_wdrc = pickle.load(std_cost_mmse_wdrc_file)
+    avg_cost_drlqc_file.close()
+    std_cost_drlqc_file = open(path + '/drlqc_std.pkl', 'rb' )
+    std_cost_drlqc = pickle.load(std_cost_drlqc_file)
     #print(std_cost_mmse_wdrc)
-    std_cost_mmse_wdrc_file.close()
-    summarize_noise(num_noise_list, avg_cost_lqg, std_cost_lqg, avg_cost_wdrc, std_cost_wdrc, avg_cost_drkf_wdrc, std_cost_drkf_wdrc, avg_cost_mmse_wdrc, std_cost_mmse_wdrc, args.dist, args.noise_dist, path, args.application)
+    std_cost_drlqc_file.close()
+    summarize_noise(num_noise_list, avg_cost_lqg, std_cost_lqg, avg_cost_wdrc, std_cost_wdrc, avg_cost_drkf_wdrc, std_cost_drkf_wdrc, avg_cost_drlqc, std_cost_drlqc, args.dist, args.noise_dist, path, args.application)
