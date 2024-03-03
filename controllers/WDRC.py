@@ -91,7 +91,7 @@ class WDRC:
         #optimal_penalty = minimize(self.objective, x0=np.array([5*self.infimum_penalty]), method='nelder-mead', options={'xatol': 1e-6, 'disp': False, 'maxiter':10000}).x[0]
         
         #output = minimize(self.objective, x0=np.array([10* self.infimum_penalty]), method='L-BFGS-B', options={'eps': 1e-8 ,'maxfun': 10000, 'disp': False, 'maxiter': 10000, 'ftol': 1e-6, 'gtol': 1e-6, 'maxls': 20})
-        output = minimize(self.objective, x0=np.array([10*self.infimum_penalty]), method='L-BFGS-B', options={'eps': 1e-8 ,'maxfun': 100000, 'disp': False, 'maxiter': 100000})  
+        output = minimize(self.objective, x0=np.array([5*self.infimum_penalty]), method='L-BFGS-B', options={'eps': 1e-8 ,'maxfun': 100000, 'disp': False, 'maxiter': 100000})  
         optimal_penalty = output.x[0]
         #optimal_penalty = 2* self.infimum_penalty
         print("WDRC Optimal penalty (lambda_star) :", optimal_penalty, " when theta_w : ", self.theta_w, "\n\n")
@@ -115,7 +115,6 @@ class WDRC:
         if np.max(np.linalg.eigvals(P[self.T])) > penalty:
                 return np.inf
         for t in range(self.T-1, -1, -1):
-
             Phi = self.B @ np.linalg.inv(self.R) @ self.B.T + 1/penalty * np.eye(self.nx)
             P[t], S[t], r[t], z[t], K, L, H, h, g = self.riccati(Phi, P[t+1], S[t+1], r[t+1], z[t+1], self.Sigma_hat[t], self.mu_hat[t], penalty, t)
             if np.max(np.linalg.eigvals(P[t])) > penalty:

@@ -161,7 +161,7 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
     theta_list = [1]
     noisedist = [noise_dist1] # if you want to test only one distribution
     #noisedist = ["normal", "uniform","quadratic"] # if you want to test 3 distribution at once
-    lambda_list = [1634]
+    lambda_list = [1634] # will not be used
     #lambda_list = [750, 1000, 1250, 1500, 1750, 2000, 2250, 2500]
     for noise_dist in noisedist:
         for lambda_ in lambda_list:
@@ -224,8 +224,8 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
                             w_max = None
                             w_min = None
 
-                            mu_w = 0.02*np.ones((nx, 1))
-                            Sigma_w= 0.02*np.eye(nx)
+                            mu_w = 0.05*np.ones((nx, 1))
+                            Sigma_w= 0.1*np.eye(nx)
                             #initial state distribution parameters
                             x0_max = None
                             x0_min = None

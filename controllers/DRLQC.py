@@ -22,7 +22,7 @@ import numpy as np
 # Controller from Taşkesen, Bahar, et al. "Distributionally Robust Linear Quadratic Control." arXiv preprint arXiv:2305.17037 (2023).
 # https://github.com/RAO-EPFL/DR-Control 
 class DRLQC:
-    def __init__(self, lambda_, theta, T, dist, noise_dist, system_data, mu_hat, W_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, mu_v, v_mean_hat, V_hat, tol):
+    def __init__(self, theta_w, theta_v, theta_x0, T, dist, noise_dist, system_data, mu_hat, W_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, mu_v, v_mean_hat, V_hat, tol):
         self.dist = dist
         self.noise_dist = noise_dist
         self.T = T
@@ -66,7 +66,9 @@ class DRLQC:
         self.mu_w = mu_w
         self.mu_v = mu_v
         self.Sigma_w = Sigma_w
-        self.rho = theta
+        self.rho_w = theta_w
+        self.rho_v = theta_v
+        self.rho_x0 = theta_x0
         if self.dist=="uniform" or self.dist=="quadratic":
             self.x0_max = x0_max
             self.x0_min = x0_min
@@ -93,9 +95,7 @@ class DRLQC:
             self.true_v_init = self.quadratic(self.v_max, self.v_min) #observation noise
             
         
-        self.lambda_ = lambda_
-        
-        print("DRLQC ", self.dist, " / ", self.noise_dist, " / rho : ", self.rho)
+        print("DRLQC ", self.dist, " / ", self.noise_dist, " / rho_w : ", self.rho_w, " / rho_v : ", self.rho_v, " / rho_x0 : ", self.rho_x0)
         
         self.params = Parameters(
         A=self.A_big,
@@ -108,7 +108,9 @@ class DRLQC:
         X0_hat=self.x0_cov,
         V_hat=self.V_hat,
         W_hat=self.W_hat,
-        rho=self.rho,
+        rho_w=self.rho_w,
+        rho_v=self.rho_v,
+        rho_x0 = self.rho_x0,
         tol=np.nan,
         tensors=True,
         )

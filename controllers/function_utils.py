@@ -6,7 +6,7 @@ import pymanopt
 # Downloaded from DRLQC !!!!! https://github.com/RAO-EPFL/DR-Control
 class Parameters:
     def __init__(
-        self, A, B, C, Q, R, T, P, X0_hat, W_hat, V_hat, rho, tol, tensors=True
+        self, A, B, C, Q, R, T, P, X0_hat, W_hat, V_hat, rho_w, rho_v, rho_x0, tol, tensors=True
     ):
         W_hat_sqrt = np.zeros_like(W_hat)
         V_hat_sqrt = np.zeros_like(V_hat)
@@ -41,7 +41,9 @@ class Parameters:
             self.W_hat_sqrt = W_hat_sqrt
             self.V_hat_sqrt = V_hat_sqrt
         self.T = T
-        self.rho = rho
+        self.rho_w = rho_w
+        self.rho_v = rho_v
+        self.rho_x0 = rho_x0
         self.tol = tol
 
 
@@ -389,7 +391,9 @@ def FW(X0_k, W_k, V_k, iter_max, delta, params):
     manifold_n = pymanopt.manifolds.euclidean.Symmetric(n, 1)
     manifold_p = pymanopt.manifolds.euclidean.Symmetric(p, 1)
     T = params.T
-    rho = params.rho
+    rho_w = params.rho_w
+    rho_v = params.rho_v
+    rho_x0 = params.rho_x0
     obj_vals = []
     obj_vals.append(
         f_obj(
@@ -425,7 +429,7 @@ def FW(X0_k, W_k, V_k, iter_max, delta, params):
                     D=F,
                     var_cov=np.array(X0_k),
                     covsa=np.array(X0_hat),
-                    rho=rho,
+                    rho=rho_x0,
                     delta=delta,
                 )
                 dg += np.trace(np.matmul((X0_tilde - X0_k).T, F))
@@ -447,7 +451,7 @@ def FW(X0_k, W_k, V_k, iter_max, delta, params):
                         D=F,
                         var_cov=np.array(W_k[:, :, l - 1]),
                         covsa=np.array(W_hat[:, :, l - 1]),
-                        rho=rho,
+                        rho=rho_w,
                         delta=delta,
                     )
                 else:
@@ -474,7 +478,7 @@ def FW(X0_k, W_k, V_k, iter_max, delta, params):
                         D=F,
                         var_cov=np.array(V_k[:, :, l - T - 1]),
                         covsa=np.array(V_hat[:, :, l - T - 1]),
-                        rho=rho,
+                        rho=rho_v,
                         delta=delta,
                     )
                 else:
@@ -513,7 +517,9 @@ def FW_faster(X0_k, W_k, V_k, iter_max, delta, params):
     manifold_n = pymanopt.manifolds.euclidean.Symmetric(n, 1)
     manifold_p = pymanopt.manifolds.euclidean.Symmetric(p, 1)
     T = params.T
-    rho = params.rho
+    rho_w = params.rho_w
+    rho_v = params.rho_v
+    rho_x0 = params.rho_x0
     duality_gap = []
     for iter in range(iter_max):
         # print(iter)
@@ -540,7 +546,7 @@ def FW_faster(X0_k, W_k, V_k, iter_max, delta, params):
                     var_cov=np.array(X0_k),
                     covsa=np.array(X0_hat),
                     covsa_sqrt=np.array(X0_hat_sqrt),
-                    rho=rho,
+                    rho=rho_x0,
                     delta=delta,
                 )
                 dg += np.trace(np.matmul((X0_tilde - X0_k).T, F))
@@ -563,7 +569,7 @@ def FW_faster(X0_k, W_k, V_k, iter_max, delta, params):
                         var_cov=np.array(W_k[:, :, l - 1]),
                         covsa=np.array(W_hat[:, :, l - 1]),
                         covsa_sqrt=np.array(W_hat_sqrt[:, :, l - 1]),
-                        rho=rho,
+                        rho=rho_w,
                         delta=delta,
                     )
                 else:
@@ -591,7 +597,7 @@ def FW_faster(X0_k, W_k, V_k, iter_max, delta, params):
                         var_cov=np.array(V_k[:, :, l - T - 1]),
                         covsa=np.array(V_hat[:, :, l - T - 1]),
                         covsa_sqrt=np.array(V_hat_sqrt[:, :, l - T - 1]),
-                        rho=rho,
+                        rho=rho_v,
                         delta=delta,
                     )
                 else:

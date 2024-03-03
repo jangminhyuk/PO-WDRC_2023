@@ -10,7 +10,7 @@ import scipy
 #This method implements the SDP formualation of MMSE estimation problem from "Shafieezadeh Abadeh, Soroosh, et al. "Wasserstein distributionally robust Kalman filtering." Advances in Neural Information Processing Systems 31 (2018)."
 #For Kalman filtering, this method makes the ambiguity set of dimension [nx + ny] 
 class DRKF_WDRC_test:
-    def __init__(self, lambda_, theta_w, theta_v, T, dist, noise_dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, mu_v, v_mean_hat, M_hat, app_lambda):
+    def __init__(self, lambda_, theta_w, theta_v, theta_x0, T, dist, noise_dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, mu_v, v_mean_hat, M_hat, app_lambda):
         self.dist = dist
         self.noise_dist = noise_dist
         self.T = T
@@ -54,6 +54,7 @@ class DRKF_WDRC_test:
         
         self.theta_w = theta_w
         self.theta_v = theta_v
+        self.theta_x0 = theta_x0
         #Initial state
         # if self.dist=="normal":
         #     self.lambda_ = 785
@@ -96,7 +97,7 @@ class DRKF_WDRC_test:
         #output = minimize(self.objective, x0=np.array([2*self.infimum_penalty]), method='L-BFGS-B', options={'maxfun': 100000, 'disp': False, 'maxiter': 100000})
         #print(output.message)
         #output = minimize(self.objective, x0=np.array([10* self.infimum_penalty]), method='L-BFGS-B', options={'eps': 1e-8 ,'maxfun': 10000, 'disp': False, 'maxiter': 10000, 'ftol': 1e-6, 'gtol': 1e-6, 'maxls': 20})
-        output = minimize(self.objective, x0=np.array([10*self.infimum_penalty]), method='L-BFGS-B', options={'eps': 1e-8 ,'maxfun': 100000, 'disp': False, 'maxiter': 100000})
+        output = minimize(self.objective, x0=np.array([5*self.infimum_penalty]), method='L-BFGS-B', options={'eps': 1e-8 ,'maxfun': 100000, 'disp': False, 'maxiter': 100000})
         optimal_penalty = output.x[0]
         #optimal_penalty = 2*self.infimum_penalty
         print("DRKF WDRC Optimal penalty (lambda_star):", optimal_penalty)
@@ -134,9 +135,9 @@ class DRKF_WDRC_test:
         #print(self.v_mean_hat[0])
           
         #x_cov[0] = self.kalman_filter_cov(self.M_hat[0], self.x0_cov)
-        x_cov[0], S_xx[0], S_xy[0], S_yy[0], sigma_wc[0], _= self.DR_kalman_filter_cov(P[0], S[0], self.M_hat[0], self.x0_cov, self.Sigma_hat[0])
-        for t in range(0, self.T):
-            x_cov[t+1], S_xx[t+1], S_xy[t+1], S_yy[t+1], sigma_wc[t], z_tilde[t] = self.DR_kalman_filter_cov(P[t+1], S[t+1], self.M_hat[t+1], x_cov[t], self.Sigma_hat[t])
+        x_cov[0], S_xx[0], S_xy[0], S_yy[0], _= self.DR_kalman_filter_cov_initial(self.M_hat[0], self.x0_cov)
+        for t in range(0, self.T-1):
+            x_cov[t+1], S_xx[t+1], S_xy[t+1], S_yy[t+1], sigma_wc[t], z_tilde[t] = self.DR_kalman_filter_cov(P[t+1], S[t+1], self.M_hat[t+1], x_cov[t], self.Sigma_hat[t], penalty)
         
         y = self.get_obs(self.x0_init, self.true_v_init)
         x0_mean = self.DR_kalman_filter(self.v_mean_hat[0], self.M_hat[0], self.x0_mean, y, S_xx[0], S_xy[0], S_yy[0]) #initial state estimation
@@ -292,7 +293,7 @@ class DRKF_WDRC_test:
         x_new = x_ + P @ self.C.T @ temp
         return x_new
 
-    def solve_DR_sdp(self, P_t1, S_t1, M, X_cov, Sigma_hat, theta):
+    def solve_DR_sdp(self, P_t1, S_t1, M, X_cov, Sigma_hat, theta, Lambda_):
         #construct problem
         #Variables
         V = cp.Variable((self.nx, self.nx))
@@ -312,6 +313,7 @@ class DRKF_WDRC_test:
         #M_hat_12_var = cp.Parameter((self.ny, self.ny)) # nominal M_hat root
         P_var = cp.Parameter((self.nx,self.nx))
         S_var = cp.Parameter((self.nx,self.nx))
+        #Lambda = cp.Parameter()
         
         #Sigma_hat_12_var.value = np.real(scipy.linalg.sqrtm(Sigma_hat))
         Sigma_w.value = Sigma_hat
@@ -321,11 +323,11 @@ class DRKF_WDRC_test:
         #M_hat_12_var.value = np.real(scipy.linalg.sqrtm(M))
         P_var.value = P_t1 # P[t+1]
         S_var.value = S_t1 # S[t+1]
-        
+        #Lambda.value = Lambda_
         
         #use Schur Complements
         #obj function
-        obj = cp.Maximize(cp.trace(S_var @ V) + cp.trace((P_var - self.lambda_ * np.eye(self.nx)) @ Sigma_wc) + 2*self.lambda_*cp.trace(Y)) 
+        obj = cp.Maximize(cp.trace(S_var @ V) + cp.trace((P_var - Lambda_ * np.eye(self.nx)) @ Sigma_wc) + 2*Lambda_*cp.trace(Y)) 
         
         #constraints
         constraints = [
@@ -367,6 +369,66 @@ class DRKF_WDRC_test:
         cost = prob.value
         return  S_xx_opt, S_xy_opt, S_yy_opt, Sigma_wc_opt, cost
     
+    def solve_DR_sdp_initial(self, M_hat, X_hat):
+        #construct problem
+        #Variables
+        X0 = cp.Variable((self.nx, self.nx), symmetric=True) # prediction
+        X = cp.Variable((self.nx, self.nx), symmetric=True)
+        M0 = cp.Variable((self.ny, self.ny), symmetric=True)
+        N = cp.Variable((self.ny, self.ny), symmetric=True)
+        K = cp.Variable((self.nx, self.nx), symmetric=True)
+
+        X0_hat = cp.Parameter((self.nx, self.nx))
+        M0_hat = cp.Parameter((self.ny, self.ny))
+        theta_x0 = cp.Parameter(nonneg=True)
+        theta_v0 = cp.Parameter(nonneg=True)
+        
+        X0_hat.value = X_hat
+        M0_hat.value = M_hat
+        theta_x0.value = self.theta_x0
+        theta_v0.value = self.theta_v
+        
+        #use Schur Complements
+        #obj function
+        obj = cp.Maximize(cp.trace(X)) 
+        
+        #constraints
+        constraints = [
+                cp.bmat([[X0-X, X0 @ self.C.T],
+                        [self.C @ X0, self.C @ X0 @ self.C.T + M0]
+                        ]) >> 0 ,
+                cp.trace(M0_hat + M0 - 2*N ) <= theta_v0**2,
+                cp.bmat([[M0_hat, N],
+                         [N.T, M0]
+                         ]) >> 0,
+                cp.trace(X0_hat + X0 - 2*K ) <= theta_x0**2,
+                cp.bmat([[X0_hat, K],
+                         [K.T, X0]
+                         ]) >> 0,
+                X>>0,
+                X0>>0,
+                M0>>0,
+                N>>0,
+                K>>0
+                ]
+        
+        prob = cp.Problem(obj, constraints)
+        
+        prob.solve(solver=cp.MOSEK)
+        
+        if prob.status in ["infeasible", "unbounded"]:
+            print(prob.status, 'False in DRKF combined initial!!!!!!!!!!!!!')
+        
+        
+        S_xx_opt = X0.value
+        S_xy_opt = X0.value @ self.C.T
+        S_yy_opt = self.C @ X0.value @ self.C.T + M0.value
+        # print(S_xx_opt.shape)
+        # print(S_xy_opt.shape)
+        # print(S_yy_opt.shape)
+        #S_opt = S.value
+        cost = prob.value
+        return  S_xx_opt, S_xy_opt, S_yy_opt, cost
     #DR Kalman FILTER !!!!!!!!!!!!!!!!!!!!!!!!
     def DR_kalman_filter(self, v_mean_hat, M_hat, x, y, S_xx, S_xy, S_yy, mu_w=None, u = None):
         if u is None:
@@ -383,21 +445,23 @@ class DRKF_WDRC_test:
         x_new = S_xy @ np.linalg.inv(S_yy) @ (y - y_) + x_
         return x_new
     
-    def DR_kalman_filter_cov(self, P, S, M_hat, X_cov, Sigma_hat):
+    def DR_kalman_filter_cov(self, P, S, M_hat, X_cov, Sigma_hat, Lambda):
         #Performs state estimation based on the current state estimate, control input and new observation
         theta = self.theta_v
-        S_xx, S_xy, S_yy, Sigma_wc, cost = self.solve_DR_sdp(P, S, M_hat, X_cov, Sigma_hat, theta) # used theta as a radius!!! (can be changed on purpose)
+        S_xx, S_xy, S_yy, Sigma_wc, cost = self.solve_DR_sdp(P, S, M_hat, X_cov, Sigma_hat, theta, Lambda)
         
         X_cov_new = S_xx - S_xy @ np.linalg.inv(S_yy) @ S_xy.T
         
         return X_cov_new, S_xx, S_xy, S_yy, Sigma_wc, cost
     
-    # def DR_kalman_filter_cov_repeat(self, Sigma): # for repeating steps!!
+    def DR_kalman_filter_cov_initial(self, M_hat, X_cov): #DRKF !!
+        #Performs state estimation based on the current state estimate, control input and new observation
+        S_xx, S_xy, S_yy, cost = self.solve_DR_sdp_initial(M_hat, X_cov)
         
-    #     S, S_xx, S_xy, S_yy = self.solve_DR_sdp(Sigma, self.theta_v) # used theta as a radius!!! (can be changed on purpose)
-        
-    #     X_cov_new = S_xx - S_xy @ np.linalg.inv(S_yy) @ S_xy.T
-    #     return X_cov_new, S, S_xx, S_xy, S_yy
+        X_cov_new = S_xx - S_xy @ np.linalg.inv(S_yy) @ S_xy.T
+        #print(np.linalg.matrix_rank(X_cov_new))
+        #print(np.linalg.eigvals(X_cov_new))
+        return X_cov_new, S_xx, S_xy, S_yy, cost
     
     def riccati(self, Phi, P, S, r, z, Sigma_hat, mu_hat, lambda_, t):
         #Riccati equation corresponding to the Theorem 1
@@ -447,10 +511,10 @@ class DRKF_WDRC_test:
         self.S_yy = np.zeros((self.T+1, self.ny, self.ny))
         self.sigma_wc = np.zeros((self.T, self.nx, self.nx))
         #print(self.v_mean_hat[0])
-        self.x_cov[0], self.S_xx[0], self.S_xy[0], self.S_yy[0], self.sigma_wc[0], _= self.DR_kalman_filter_cov(self.P[0], self.S[0], self.M_hat[0], self.x0_cov, self.Sigma_hat[0])
+        self.x_cov[0], self.S_xx[0], self.S_xy[0], self.S_yy[0], _= self.DR_kalman_filter_cov_initial(self.M_hat[0], self.x0_cov)
         for t in range(self.T):
             print("DRKF WDRC Offline step : ",t,"/",self.T)
-            self.x_cov[t+1], self.S_xx[t+1], self.S_xy[t+1], self.S_yy[t+1], self.sigma_wc[t], _ = self.DR_kalman_filter_cov(self.P[t+1], self.S[t+1], self.M_hat[t+1], self.x_cov[t], self.Sigma_hat[t])
+            self.x_cov[t+1], self.S_xx[t+1], self.S_xy[t+1], self.S_yy[t+1], self.sigma_wc[t], _ = self.DR_kalman_filter_cov(self.P[t+1], self.S[t+1], self.M_hat[t+1], self.x_cov[t], self.Sigma_hat[t], self.lambda_)
             
             #print('old:', self.g[t], 'new:', sigma_wc[t])
 

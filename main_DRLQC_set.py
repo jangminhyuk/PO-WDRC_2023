@@ -162,10 +162,10 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
     Qf = np.zeros((10,10))
     #----------------------------
     theta_w =0.1
-    theta_v_list = [0.1, 1, 5, 10, 20]
-    #theta_v_list = [1]
-    theta_w_list = [0.1, 1, 5, 10, 20]
-    theta_w_list = [0.5]
+    theta_v_list = [1, 5, 10, 20]
+    theta_v_list = [3.5]
+    theta_w_list = [1, 5, 10, 20]
+    theta_w_list = [2.0]
     #noisedist = [noise_dist1] # if you want to test only one distribution
     noisedist = ["normal", "uniform","quadratic"] # if you want to test 3 distribution at once
     
@@ -174,9 +174,9 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
             for theta in theta_v_list:
                 for num_noise in num_noise_list:
                     # ERASE HERE!!!
-                    theta_w = theta
+                    #theta_w = theta
                     
-                    print("disturbance : ", dist, "/ noise : ", noise_dist, "/ num_noise : ", num_noise, "/ theta_v : ", theta, "/ theta_w : ", theta_w)
+                    print("disturbance : ", dist, "/ noise : ", noise_dist, "/ num_noise : ", num_noise, "/ theta_w : ", theta_w, "/ theta_v : ", theta)
                     np.random.seed(seed) # fix Random seed!
                     print("--------------------------------------------")
                     print("number of noise sample : ", num_noise)
@@ -234,8 +234,8 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
                         # x0_mean[-1] = 1
                         x0_cov = 0.01*np.eye(nx)
                     elif dist == "quadratic":
-                        w_max = 0.3*np.ones(nx)
-                        w_min = -0.3*np.ones(nx)
+                        w_max = 0.4*np.ones(nx)
+                        w_min = -0.1*np.ones(nx)
                         mu_w = (0.5*(w_max + w_min))[..., np.newaxis]
                         Sigma_w = 3.0/20.0*np.diag((w_max - w_min)**2)
                         #initial state distribution parameters
@@ -281,7 +281,7 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
                         mu_v = 0*np.zeros((ny, 1))
                     elif noise_dist =="quadratic":
                         v_min = -0.5*np.ones(ny)
-                        v_max = 0.5*np.ones(ny)
+                        v_max = 1.0*np.ones(ny)
                         mu_v = (0.5*(v_max + v_min))[..., np.newaxis]
                         M = 3.0/20.0 *np.diag((v_max-v_min)**2)
                         #theta = 0.1 # 0.1!!
@@ -382,7 +382,7 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
                             #DRKF method
                             drkf_wdrc = DRKF_WDRC_test(lambda_, theta_w, theta, T, dist, noise_dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, mu_v, v_mean_hat,  M_hat, -1)
                             #MMSE estimation problem method(MMSE_WDRC: directly from Adversial Analytics(ambiguity for both x and v) /MMSE_WDRC_2: modified to handle the ambiguity only from observation noise v) 
-                            drlqc = DRLQC(lambda_, theta_w, T, dist, noise_dist, system_data, mu_hat, W_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, mu_v, v_mean_hat, V_hat, tol)
+                            drlqc = DRLQC(theta_w, theta, 0.001, T, dist, noise_dist, system_data, mu_hat, W_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, mu_v, v_mean_hat, V_hat, tol)
                             wdrc = WDRC(lambda_, theta_w, T, dist, noise_dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, mu_v, v_mean_hat, M_hat, -1)
                             lqg = LQG(T, dist, noise_dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, mu_v, v_mean_hat, M_hat)
                         

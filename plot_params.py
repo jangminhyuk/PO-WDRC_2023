@@ -67,30 +67,30 @@ def summarize(lqg_lambda_values, lqg_theta_values, lqg_cost_values ,wdrc_lambda_
     #ax.scatter(drkf_lambda_values, drkf_theta_values, drkf_cost_values, label='DRKF')
 
     # Interpolate cost values for smooth surface - DRKF
-    lambda_grid_drkf, theta_grid_drkf = np.meshgrid(
-        np.linspace(min(drkf_lambda_values), max(drkf_lambda_values), 100),
-        np.linspace(min(drkf_theta_values), max(drkf_theta_values), 100)
-    )
-    cost_grid_drkf = griddata(
-        (drkf_lambda_values, drkf_theta_values), drkf_cost_values,
-        (lambda_grid_drkf, theta_grid_drkf), method='cubic'
-    )
+    # lambda_grid_drkf, theta_grid_drkf = np.meshgrid(
+    #     np.linspace(min(drkf_lambda_values), max(drkf_lambda_values), 100),
+    #     np.linspace(min(drkf_theta_values), max(drkf_theta_values), 100)
+    # )
+    # cost_grid_drkf = griddata(
+    #     (drkf_lambda_values, drkf_theta_values), drkf_cost_values,
+    #     (lambda_grid_drkf, theta_grid_drkf), method='cubic'
+    # )
     
-    # Plot smooth surface - DRKF
-    surface_drkf = ax.plot_surface(lambda_grid_drkf, theta_grid_drkf, cost_grid_drkf, alpha=0.5, color='green', label='DRKF-WDRC')
-    surfaces.append(surface_drkf)
-    labels.append('DRKF-WDRC')
-    ##
-    desired_ticks = 5
+    # # Plot smooth surface - DRKF
+    # surface_drkf = ax.plot_surface(lambda_grid_drkf, theta_grid_drkf, cost_grid_drkf, alpha=0.5, color='green', label='DRKF-WDRC')
+    # surfaces.append(surface_drkf)
+    # labels.append('DRKF-WDRC')
+    # ##
+    # desired_ticks = 5
     
-    # Get the lambda values corresponding to the ticks
-    lambda_min = min(min(lqg_lambda_values), min(wdrc_lambda_values), min(drkf_lambda_values))
-    lambda_max = max(max(lqg_lambda_values), max(wdrc_lambda_values), max(drkf_lambda_values))
-    lambda_values = np.linspace(lambda_min, lambda_max, desired_ticks)
+    # # Get the lambda values corresponding to the ticks
+    # lambda_min = min(min(lqg_lambda_values), min(wdrc_lambda_values), min(drkf_lambda_values))
+    # lambda_max = max(max(lqg_lambda_values), max(wdrc_lambda_values), max(drkf_lambda_values))
+    # lambda_values = np.linspace(lambda_min, lambda_max, desired_ticks)
 
     # Set the locator and formatter for the lambda axis
-    ax.xaxis.set_major_locator(ticker.FixedLocator(lambda_values))
-    ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, pos: f'{x:.1f}'))
+    # ax.xaxis.set_major_locator(ticker.FixedLocator(lambda_values))
+    # ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, pos: f'{x:.1f}'))
     ##
     
     ax.legend(handles=surfaces, labels=labels)
@@ -145,11 +145,11 @@ if __name__ == "__main__":
     lqg_cost_values = []
     
     theta_list = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0]
-    lambda_list = [750, 1000, 1250, 1500, 1750, 2000, 2250, 2500]
+    lambda_list = [2000, 2250, 2500, 2750, 3000, 4000, 5000]
     # Regular expression pattern to extract numbers from file names
     #pattern = r"drkf_wdrc_(\d+(?:\.\d+)?)_(\d+(?:\.\d+)?)"
     pattern = r"drkf_wdrc_(\d+(?:\.\d+)?)_(\d+(?:\.\d+)?)_?(\d+(?:_\d+)?)?"
-    pattern_fixed_theta = r"wdrc_(\d+(?:\.\d+)?)"
+    pattern_fixed_theta = r"wdrc(\d+(?:\.\d+)?)"
     pattern_lqg = r"lqg"
     # Iterate over each file in the directory
     for filename in os.listdir(path):

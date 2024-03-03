@@ -156,14 +156,14 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
     #theta_list = [2]
     #theta_list = [0.001, 0.01, 0.05, 0.1, 0.5, 1, 2]
     #theta_w_list = [0.00001, 0.0001, 0.0005, 0.0015, 0.001, 0.00015, 0.002, 0.0025, 0.005, 0.01, 0.015, 0.05, 0.1, 1]
-    theta_w_list =[0.1]
-    theta_list = [10]
+    theta_w_list =[1]
+    theta_list = [5] # theta v 
     noisedist = [noise_dist1] # if you want to test only one distribution
     #noisedist = ["normal", "uniform","quadratic"] # if you want to test 3 distribution at once
     if dist=="uniform" or dist=="quadratic":
         lambda_=2000
     else:
-        lambda_=1500
+        lambda_=2000
     for theta_w in theta_w_list:
         for noise_dist in noisedist:
             for theta in theta_list:
@@ -225,8 +225,8 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
                         w_max = None
                         w_min = None
 
-                        mu_w = 0.02*np.ones((nx, 1))
-                        Sigma_w= 0.02*np.eye(nx)
+                        mu_w = 0.05*np.ones((nx, 1))
+                        Sigma_w= 0.1*np.eye(nx)
                         #initial state distribution parameters
                         x0_max = None
                         x0_min = None
@@ -277,8 +277,8 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
                         #theta = 0.05 # 0.05!!
                         v_max = None
                         v_min = None
-                        M = 0.03*np.eye(ny) #observation noise covariance
-                        mu_v = 0.03*np.zeros((ny, 1))
+                        M = 0.02*np.eye(ny) #observation noise covariance
+                        mu_v = 0.02*np.zeros((ny, 1))
                     elif noise_dist =="quadratic":
                         v_min = -0.3*np.ones(ny)
                         v_max = 0.5*np.ones(ny)
@@ -382,9 +382,9 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
                             wdrc = WDRC(lambda_, theta_w, T, dist, noise_dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, mu_v, v_mean_hat, M_hat, -1)
                             lqg = LQG(T, dist, noise_dist, system_data, mu_hat, Sigma_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, mu_v, v_mean_hat, M_hat)
                         
-                        
-                        wdrc.backward() 
                         drkf_wdrc.backward()
+                        wdrc.backward() 
+                        
                         #mmse_wdrc.backward()
                         lqg.backward()
                         

@@ -155,23 +155,23 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
     
     #theta_list = [1, 2]
     #theta_list = [0.1, 0.5, 1, 2, 5]
-    theta_list = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0] # for param plot
+    theta_v_list = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0] # for param plot
     #theta_list = [0.5] # for param plot
     #theta_w_list = [0.00001, 0.0001, 0.0005, 0.0015, 0.001, 0.00015, 0.002, 0.0025, 0.005, 0.01, 0.015, 0.05, 0.1, 1]
-    theta_w_list =[0.1]
+    theta_w_list =[0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0]
     #theta_list = [1]
     noisedist = [noise_dist1] # if you want to test only one distribution
     #noisedist = ["normal", "uniform","quadratic"] # if you want to test 3 distribution at once
-    #lambda_list = [1634]
-    lambda_list = [750, 1000, 1250, 1500, 1750, 2000, 2250, 2500]
+    lambda_list = [1634] # willl not be used!!
+    #lambda_list = [750, 1000, 1250, 1500, 1750, 2000, 2250, 2500]
     #lambda_list = [2000, 2250, 2500]
     for noise_dist in noisedist:
         for lambda_ in lambda_list:
             for theta_w in theta_w_list:
-                for theta in theta_list:
+                for theta in theta_v_list:
                     for num_noise in num_noise_list:
                         print("disturbance : ", dist, "/ noise : ", noise_dist, "/ num_noise : ", num_noise)
-                        print("lambda : ", lambda_, "/ theta_v : ", theta)
+                        #print("lambda : ", lambda_, "/ theta_v : ", theta)
                         np.random.seed(seed) # fix Random seed!
                         print("--------------------------------------------")
                         print("number of noise sample : ", num_noise)
@@ -226,8 +226,8 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
                             w_max = None
                             w_min = None
 
-                            mu_w = 0.02*np.ones((nx, 1))
-                            Sigma_w= 0.02*np.eye(nx)
+                            mu_w = 0.05*np.ones((nx, 1))
+                            Sigma_w= 0.1*np.eye(nx)
                             #initial state distribution parameters
                             x0_max = None
                             x0_min = None
@@ -529,10 +529,10 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
                             print(" std (DRKF-WDRC) : ", J_DRKF_WDRC_std[0])
                         else:
                             #Save results
-                            theta_ = f"_{str(theta).replace('.', '_')}" # change 1.0 to 1_0 for file name
-                            
+                            theta_w_ = f"_{str(theta_w).replace('.', '_')}" # change 1.0 to 1_0 for file name
+                            theta_v_ = f"_{str(theta).replace('.', '_')}" # change 1.0 to 1_0 for file name
                             #J_DRKF_WDRC_mean= np.mean(J_DRKF_WDRC_list, axis=0)
-                            save_data(path + 'drkf_wdrc_' + str(lambda_) + theta_+ '.pkl', J_DRKF_WDRC_mean)
+                            save_data(path + 'drkf_wdrc_' + theta_w_+ 'and' + theta_v_+ '.pkl', J_DRKF_WDRC_mean)
                             # save_data(path + 'mmse_wdrc.pkl', output_mmse_wdrc_list)
                             # save_data(path + 'wdrc.pkl', output_wdrc_list)
                             # save_data(path + 'lqg.pkl', output_lqg_list)
@@ -543,7 +543,7 @@ def main(dist, noise_dist1, sim_type, num_sim, num_samples, num_noise_samples, T
                             print('\n-------Summary-------')
                             #print("DRKF cost : ", J_DRKF_WDRC_mean)
                             print("dist : ", dist,"/ noise dist : ", noise_dist, "/ num_samples : ", num_samples, "/ num_noise_samples : ", num_noise, "/seed : ", seed)
-                            print("lambda : ", lambda_, " / theta : ", theta_)
+                            print("theta_w : ", theta_w , " / theta_v : ", theta)
 
                     
                     # after running noise_samples lists!
